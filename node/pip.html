@@ -1,0 +1,37 @@
+<script type="text/javascript">
+    RED.nodes.registerType('pip',{
+        category: 'python',
+        color: '#3e7cad',
+        defaults: {
+            name: {value:""},
+            arg: {value:""},
+            action: {value:""}
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "cog.svg",
+        label: function() {
+            return this.name||"pip";
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="pip">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name"><br>
+        <label for="node-input-action"><i class="fa fa-cog"></i> Command</label>
+        <select id="node-input-action" name="action">
+            <option value="None">None</option>
+            <option value="install">install</option>
+            <option value="uninstall">uninstall</option>
+            <option value="list">list</option>
+        </select><br>
+        <label for="node-input-arg"><i class="fa fa-tag"></i> arg</label>
+        <input type="text" id="node-input-arg" placeholder="argument">
+    </div>
+</script>
+
+<script type="text/html" data-help-name="pip">
+
+</script>

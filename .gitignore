@@ -1,3 +1,9 @@
+# ignore
+
+pyenv/
+
+# Node
+
 # Logs
 logs
 *.log

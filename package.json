@@ -1,0 +1,34 @@
+{
+  "name": "@background404/node-red-contrib-python-venv",
+  "version": "0.0.1",
+  "description": "Node for python virtual environment",
+  "main": "node/venv.js",
+  "scripts": {
+    "test": "mocha test/**/*_spec.js",
+    "preinstall": "python setup.py"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "node-red": {
+    "version": ">=1.3.7",
+    "nodes": {
+      "venv": "node/venv.js",
+      "pip": "node/pip.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/404background/node-red-contrib-python-venv.git"
+  },
+  "keywords": [
+    "node-red",
+    "python"
+  ],
+  "author": "background404",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/404background/node-red-contrib-python-venv/issues"
+  },
+  "homepage": "https://github.com/404background/node-red-contrib-python-venv#readme"
+}
