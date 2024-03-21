@@ -11,15 +11,23 @@ You can run python.exe or pip.exe in that environment.
 
 ## Test Case
 
-- Windows 10
+Windows 10
+
 - Node.js: v20.10.0
 - npm: 9.1.3
-- Python 3.8.3
-- pip 24.0
+- Python: 3.8.3
+- pip: 24.0
+
+Raspberry Pi
+
+- Debian bookworm
+- Node.js: v18.19.0
+- npm: 9.2.0
+- Python: 3.11.2
+- pip: 24.0
 
 Sample flows are in the examples folder.  
 ![sample-flow.jpg](./img/sample-flow.jpg)
-
 
 ## Nodes
 
