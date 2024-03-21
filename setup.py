@@ -4,14 +4,15 @@ import json
 
 absDir = os.path.dirname(os.path.abspath(__file__))
 subprocess.run(['python', '-m', 'venv', 'pyenv'])
-subprocess.run([f'{absDir}/pyenv/Scripts/python.exe', '-m', 'pip', 'install', '--upgrade', 'pip'])
 
 if os.name == 'nt':
+    subprocess.run([f'{absDir}/pyenv/Scripts/python.exe', '-m', 'pip', 'install', '--upgrade', 'pip'])
     path = {
         'NODE_PYENV_PYTHON': f'{absDir}/pyenv/Scripts/python.exe',
         'NODE_PYENV_PIP': f'{absDir}/pyenv/Scripts/pip.exe'
     }
 else:
+    subprocess.run([f'{absDir}/pyenv/bin/python', '-m', 'pip', 'install', '--upgrade', 'pip'])
     path = {
         'NODE_PYENV_PYTHON': f'{absDir}/pyenv/bin/python',
         'NODE_PYENV_PIP': f'{absDir}/pyenv/bin/pip'
