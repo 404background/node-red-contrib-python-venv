@@ -6,7 +6,9 @@ module.exports = function(RED) {
         const fs = require('fs')
         const path = require('path')
         const filePath = path.join(path.dirname(__dirname), 'tmp', this.id + '.py')
-        const pythonPath = path.join(path.dirname(__dirname), 'pyenv/Scripts/python.exe')
+        const jsonPath = path.join(path.dirname(__dirname), 'path.json')
+        const json = fs.readFileSync(jsonPath)
+        const pythonPath = JSON.parse(json).NODE_PYENV_PYTHON
         let code = ""
 
         node.on('input', function(msg) {

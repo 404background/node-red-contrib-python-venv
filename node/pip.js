@@ -2,14 +2,17 @@ module.exports = function(RED) {
     function Pip(config) {
         RED.nodes.createNode(this,config)
         let node = this
+        let argument = ''
+        let action = ''
+        let command = ''
+        const path = require('path')
+        const fs = require('fs')
+        const jsonPath = path.join(path.dirname(__dirname), 'path.json')
+        const json = fs.readFileSync(jsonPath)
+        const pathPip = JSON.parse(json).NODE_PYENV_PIP
+        const execSync = require('child_process').execSync
 
         node.on('input', function(msg) {
-            const path = require('path')
-            const pathPip = path.join(path.dirname(__dirname), 'pyenv/Scripts/pip.exe')
-            let argument = ''
-            let action = ''
-            let command = ''
-
             if(config.arg !== null && config.arg !== '') {
                 argument = config.arg
             } else {
@@ -36,8 +39,6 @@ module.exports = function(RED) {
                     break
             }
             command = pathPip + ' ' + action + ' ' + option + ' ' + argument
-
-            let execSync = require('child_process').execSync
             msg.payload = String(execSync(command))
             node.send(msg)
         })

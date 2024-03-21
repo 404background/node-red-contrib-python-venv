@@ -1,6 +1,7 @@
 # ignore
 
 pyenv/
+path.json
 
 # Node
 
