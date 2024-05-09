@@ -19,4 +19,4 @@ else:
     }
 
 with open(f'{absDir}/path.json', 'w') as f:
-    json.dump(path, f, indent=2)
+    json.dump(path, f, indent=4)
