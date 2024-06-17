@@ -37,6 +37,7 @@ python.exe is in the ./pyenv/Scripts/python.exe
 
 Write your Python code in the node.  
 The program is saved in a tmp folder and executed.  
+You can access Node-RED messages like `print(msg['payload'])`
 
 ![venv-node.jpg](./img/venv-node.png)
 

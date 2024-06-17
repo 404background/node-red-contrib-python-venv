@@ -12,8 +12,11 @@ module.exports = function(RED) {
         let code = ""
 
         node.on('input', function(msg) {
-            let command = pythonPath + ' ' + filePath
-            command = command + " --payload='" + JSON.stringify(msg.payload) + "'"
+            // Base64 encoded JSON string of the message:
+            const message = Buffer.from(JSON.stringify({
+                "payload": msg.payload,
+            })).toString('base64')
+            const command = `${pythonPath} -c 'import base64;import json;msg=json.loads(base64.b64decode("${message}"));exec(open("${filePath}").read())'`
 
             if(config.code !== null && config.code !== "") {
                 code = config.code
