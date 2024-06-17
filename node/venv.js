@@ -12,7 +12,8 @@ module.exports = function(RED) {
         let code = ""
 
         node.on('input', function(msg) {
-            const command = pythonPath + ' ' + filePath
+            let command = pythonPath + ' ' + filePath
+            command = command + " --payload='" + JSON.stringify(msg.payload) + "'"
 
             if(config.code !== null && config.code !== "") {
                 code = config.code
