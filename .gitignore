@@ -2,7 +2,7 @@
 
 pyenv/
 path.json
-tmp/
+tmp/*.py
 
 # Node
 
