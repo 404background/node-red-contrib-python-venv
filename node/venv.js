@@ -16,7 +16,7 @@ module.exports = function(RED) {
             const message = Buffer.from(JSON.stringify({
                 "payload": msg.payload,
             })).toString('base64')
-            const command = `${pythonPath} -c 'import base64;import json;msg=json.loads(base64.b64decode("${message}"));exec(open("${filePath}").read())'`
+            const command = `${pythonPath} -c 'import base64;import json;msg=json.loads(base64.b64decode(r"${message}"));exec(open(r"${filePath}").read())'`
 
             if(config.code !== null && config.code !== "") {
                 code = config.code
