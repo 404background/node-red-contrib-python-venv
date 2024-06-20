@@ -9,13 +9,12 @@ module.exports = function(RED) {
         const jsonPath = path.join(path.dirname(__dirname), 'path.json')
         const json = fs.readFileSync(jsonPath)
         const pythonPath = JSON.parse(json).NODE_PYENV_PYTHON
+
+        const execSync = require('child_process').execSync
         let code = ""
 
         node.on('input', function(msg) {
-            // Base64 encoded JSON string of the message:
-            const message = Buffer.from(JSON.stringify({
-                "payload": msg.payload,
-            })).toString('base64')
+            const message = Buffer.from(JSON.stringify(msg)).toString('base64')
             const command = `${pythonPath} -c "import base64;import json;msg=json.loads(base64.b64decode(r'${message}'));exec(open(r'${filePath}').read())"`
 
             if(config.code !== null && config.code !== "") {
@@ -25,7 +24,6 @@ module.exports = function(RED) {
             }
             fs.writeFileSync(filePath, code)
             
-            let execSync = require('child_process').execSync
             msg.payload = String(execSync(command))
             node.send(msg)
         })
