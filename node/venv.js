@@ -39,11 +39,13 @@ module.exports = function(RED) {
 
             pythonProcess.on('close', (exitCode) => {
                 if (exitCode !== 0) {
-                    node.error(stderrData)
+                    node.error(`Error ${exitCode}: ` + stderrData)
                 } else {
                     msg.payload = stdoutData
                     node.send(msg)
                 }
+                stdoutData = ''
+                stderrData = ''
             })
         })
     }
