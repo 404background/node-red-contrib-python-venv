@@ -20,7 +20,7 @@ module.exports = function(RED) {
                 code = msg.code
             }
             fs.writeFileSync(filePath, code)
-            
+
             const message = Buffer.from(JSON.stringify(msg)).toString('base64')
             const args = ['-c', `import base64;import json;msg=json.loads(base64.b64decode(r'${message}'));exec(open(r'${filePath}').read())`]
             const pythonProcess = child_process.spawn(pythonPath, args)
@@ -32,11 +32,11 @@ module.exports = function(RED) {
             pythonProcess.stdout.on('data', (chunk) => {
                 stdoutData += chunk.toString()
             })
-            
+
             pythonProcess.stderr.on('data', (chunk) => {
                 stderrData += chunk.toString()
             })
-            
+
             pythonProcess.on('close', (exitCode) => {
                 if (exitCode !== 0) {
                     node.error(stderrData)
