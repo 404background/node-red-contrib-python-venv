@@ -13,7 +13,10 @@ module.exports = function(RED) {
         const execSync = require('child_process').execSync
         let code = ""
 
+        node.status({fill:"green",shape:"dot",text:"Standby"})
+
         node.on('input', function(msg) {
+            node.status({fill:"blue",shape:"dot",text:"Script is running"})
             const message = Buffer.from(JSON.stringify(msg)).toString('base64')
             const command = `${pythonPath} -c "import base64;import json;msg=json.loads(base64.b64decode(r'${message}'));exec(open(r'${filePath}').read())"`
 
@@ -26,6 +29,8 @@ module.exports = function(RED) {
             
             msg.payload = String(execSync(command))
             node.send(msg)
+
+            node.status({fill:"green",shape:"dot",text:"Standby"})
         })
     }
     RED.nodes.registerType("venv", Venv)
