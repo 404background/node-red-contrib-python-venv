@@ -10,27 +10,58 @@ module.exports = function(RED) {
         const json = fs.readFileSync(jsonPath)
         const pythonPath = JSON.parse(json).NODE_PYENV_PYTHON
 
-        const execSync = require('child_process').execSync
-        let code = ""
+        const child_process = require('child_process')
 
-        node.status({fill:"green",shape:"dot",text:"Standby"})
+        node.status({fill:"green", shape:"dot", text:"Standby"})
+
+        let runningScripts = 0
 
         node.on('input', function(msg) {
-            node.status({fill:"blue",shape:"dot",text:"Script is running"})
-            const message = Buffer.from(JSON.stringify(msg)).toString('base64')
-            const command = `${pythonPath} -c "import base64;import json;msg=json.loads(base64.b64decode(r'${message}'));exec(open(r'${filePath}').read())"`
-
-            if(config.code !== null && config.code !== "") {
+            runningScripts++
+            node.status({fill:"blue", shape:"dot", text: `Script instances running: ${runningScripts}`})
+            let code = ''
+            if(config.code !== null && config.code !== '') {
                 code = config.code
             } else {
                 code = msg.code
             }
             fs.writeFileSync(filePath, code)
-            
-            msg.payload = String(execSync(command))
-            node.send(msg)
 
-            node.status({fill:"green",shape:"dot",text:"Standby"})
+            const message = Buffer.from(JSON.stringify(msg)).toString('base64')
+            const args = ['-c', `import base64;import json;msg=json.loads(base64.b64decode(r'${message}'));exec(open(r'${filePath}').read())`]
+            const pythonProcess = child_process.spawn(pythonPath, args)
+            let stdoutData = ''
+            let stderrData = ''
+
+            pythonProcess.on('message', console.log)
+
+            pythonProcess.stdout.on('data', (chunk) => {
+                stdoutData += chunk.toString()
+            })
+
+            pythonProcess.stderr.on('data', (chunk) => {
+                stderrData += chunk.toString()
+            })
+
+            pythonProcess.on('close', (exitCode) => {
+                runningScripts--
+                if (exitCode !== 0) {
+                    node.status({fill:"red", shape:"dot", text:"Error"})
+                    node.error(`Error ${exitCode}: ` + stderrData)
+                } else {
+                    msg.payload = stdoutData
+                    node.send(msg)
+                    if(runningScripts === 0) {
+                        node.status({fill:"green", shape:"dot", text:"Standby"})
+                    }
+                    else {
+                        node.status({fill:"blue", shape:"dot", text: `Script instances running: ${runningScripts}`})
+                    }
+                }
+
+                stdoutData = ''
+                stderrData = ''
+            })
         })
     }
     RED.nodes.registerType("venv", Venv)
