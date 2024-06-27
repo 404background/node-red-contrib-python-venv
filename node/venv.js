@@ -12,7 +12,13 @@ module.exports = function(RED) {
 
         const child_process = require('child_process')
 
+        node.status({fill:"green", shape:"dot", text:"Standby"})
+
+        let runningScripts = 0
+
         node.on('input', function(msg) {
+            runningScripts++
+            node.status({fill:"blue", shape:"dot", text: `Script instances running: ${runningScripts}`})
             let code = ''
             if(config.code !== null && config.code !== '') {
                 code = config.code
@@ -38,12 +44,21 @@ module.exports = function(RED) {
             })
 
             pythonProcess.on('close', (exitCode) => {
+                runningScripts--
                 if (exitCode !== 0) {
+                    node.status({fill:"red", shape:"dot", text:"Error"})
                     node.error(`Error ${exitCode}: ` + stderrData)
                 } else {
                     msg.payload = stdoutData
                     node.send(msg)
+                    if(runningScripts === 0) {
+                        node.status({fill:"green", shape:"dot", text:"Standby"})
+                    }
+                    else {
+                        node.status({fill:"blue", shape:"dot", text: `Script instances running: ${runningScripts}`})
+                    }
                 }
+
                 stdoutData = ''
                 stderrData = ''
             })

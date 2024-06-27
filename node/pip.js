@@ -38,9 +38,15 @@ module.exports = function(RED) {
                     option = ''
                     break
             }
+            
+            if(action !== '') {
+                node.status({fill:"blue",shape:"dot",text:`${config.action}ing`})
+            }
+ 
             command = pathPip + ' ' + action + ' ' + option + ' ' + argument
             msg.payload = String(execSync(command))
             node.send(msg)
+            node.status({})
         })
     }
     RED.nodes.registerType('pip',Pip)
