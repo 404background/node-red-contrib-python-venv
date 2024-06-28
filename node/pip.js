@@ -2,12 +2,17 @@ module.exports = function(RED) {
     function Pip(config) {
         RED.nodes.createNode(this,config)
         let node = this
+        this.venv = RED.nodes.getNode(config.venv)
+
         let argument = ''
         let action = ''
         let command = ''
         const path = require('path')
         const fs = require('fs')
-        const jsonPath = path.join(path.dirname(__dirname), 'path.json')
+        let jsonPath = path.join(path.dirname(__dirname), 'pyenv', 'path.json')
+        if(this.venv) {
+            jsonPath = path.join(path.dirname(__dirname), this.venv.venvname, 'path.json')
+        }
         const json = fs.readFileSync(jsonPath)
         const pathPip = JSON.parse(json).NODE_PYENV_PIP
         const execSync = require('child_process').execSync

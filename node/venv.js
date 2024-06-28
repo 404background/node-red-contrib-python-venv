@@ -2,18 +2,21 @@ module.exports = function(RED) {
     function Venv(config) {
         RED.nodes.createNode(this,config)
         let node = this
+        this.venv = RED.nodes.getNode(config.venv)
 
         const fs = require('fs')
         const path = require('path')
-        const filePath = path.join(path.dirname(__dirname), 'tmp', this.id + '.py')
-        const jsonPath = path.join(path.dirname(__dirname), 'path.json')
+        let filePath = path.join(path.dirname(__dirname), 'tmp', this.id + '.py')
+        let jsonPath = path.join(path.dirname(__dirname), 'pyenv', 'path.json')
+        if(this.venv) {
+            jsonPath = path.join(path.dirname(__dirname), this.venv.venvname, 'path.json')
+            filePath = path.join(path.dirname(__dirname), this.venv.venvname, this.id + '.py')
+        }
         const json = fs.readFileSync(jsonPath)
         const pythonPath = JSON.parse(json).NODE_PYENV_PYTHON
-
         const child_process = require('child_process')
 
         node.status({fill:"green", shape:"dot", text:"Standby"})
-
         let runningScripts = 0
 
         node.on('input', function(msg) {

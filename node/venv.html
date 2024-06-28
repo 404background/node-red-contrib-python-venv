@@ -3,6 +3,7 @@
         category: 'python',
         color: '#3e7cad',
         defaults: {
+            venv: {value:"pyenv:default", type:"venv-config"},
             name: {value:""},
             code: {value:""}
         },
@@ -17,7 +18,7 @@
                 id: 'node-input-python-code',
                 mode: 'ace/mode/text',
                 value: this.code
-             })
+            })
         },
         oneditsave: function() {
             this.code = this.editor.getValue()
@@ -33,6 +34,8 @@
 
 <script type="text/html" data-template-name="venv">
     <div class="form-row">
+        <label for="node-input-venv"><i class="fa fa-gears"></i> venv</label>
+        <input id="node-input-venv">
         <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
         <input type="text" id="node-input-name" placeholder="Name"><br>
         <label for="node-input-python-code"><i class="fa fa-code"></i> Code:</label><br>
