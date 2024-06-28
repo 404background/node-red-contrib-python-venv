@@ -10,17 +10,33 @@
         outputs: 1,
         icon: "function.svg",
         label: function() {
-            return this.name||"venv";
-        }
-    });
+            return this.name||"venv"
+        },
+        oneditprepare: function() {
+            this.editor = RED.editor.createEditor({
+                id: 'node-input-python-code',
+                mode: 'ace/mode/text',
+                value: this.code
+             })
+        },
+        oneditsave: function() {
+            this.code = this.editor.getValue()
+            this.editor.destroy()
+            delete this.editor
+        },
+        oneditcancel: function() {
+            this.editor.destroy()
+            delete this.editor
+        },
+    })
 </script>
 
 <script type="text/html" data-template-name="venv">
     <div class="form-row">
         <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
         <input type="text" id="node-input-name" placeholder="Name"><br>
-        <label for="node-input-code"><i class="fa fa-code"></i> Code:</label><br>
-        <textarea id="node-input-code" class="node-text-editor" style="height: 500px; min-height:300px; min-width: 100%;" placeholder="Your code here"></textarea><br>
+        <label for="node-input-python-code"><i class="fa fa-code"></i> Code:</label><br>
+        <div id="node-input-python-code" class="node-text-editor" style="height: 500px; min-height:300px; min-width: 100%"></div><br>
     </div>
 </script>
 
