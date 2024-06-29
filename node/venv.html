@@ -11,35 +11,73 @@
         outputs: 1,
         icon: "function.svg",
         label: function() {
-            return this.name||"venv"
+            return this.name||"venv";
         },
-        oneditprepare: function() {
-            this.editor = RED.editor.createEditor({
-                id: 'node-input-python-code',
-                mode: 'ace/mode/text',
-                value: this.code
-            })
+        oneditprepare: function () {
+            const editor = RED.editor.createEditor({
+                id: 'node-input-editor',
+                mode: 'ace/mode/python',
+                focus: true,
+                value: $('#node-input-code').val(),
+            });
+            this.editor = editor;
+
+            RED.popover.tooltip($('#node-expand-code-editor'), "Expand editor")
+            
+            $('#node-expand-code-editor').on('click', function(e) {
+                    e.preventDefault()
+                    const cursor = editor.getCursorPosition()
+                    cursor.row = cursor.row - 1
+                    RED.editor.editText({
+                        mode: 'python',
+                        title: 'Code editor',
+                        value: editor.getValue(),
+                        width: 'Infinity',
+                        cursor: cursor,
+                        stateId: false,
+                        complete: function(v, cursor)  {
+                            editor.setValue(v, -1)
+                            editor.gotoLine(cursor.row, cursor.column, false)
+                            setTimeout(() => editor.focus(), 500)
+                        },
+                        cancel: function() {
+                            setTimeout(() => editor.focus(), 500)
+                        }
+                    })
+                })
         },
-        oneditsave: function() {
-            this.code = this.editor.getValue()
+		oneditsave: function() {
+			$('#node-input-code').val(this.editor.getValue());
+			this.editor.destroy();
+            delete this.editor;
+		},
+        oneditcancel: function()  {
             this.editor.destroy()
             delete this.editor
         },
-        oneditcancel: function() {
-            this.editor.destroy()
-            delete this.editor
+        oneditresize:function() {
+            const rowsHeight = $('#dialog-form>div:not(.node-text-editor-row)').toArray().reduce((acc, row) => acc + $(row).height(), 0)
+            const fullHeight = $('#dialog-form').height()
+            const remaningHeight = fullHeight - rowsHeight
+            $('.node-text-editor').css('height', remaningHeight + 'px')
+            this.editor && this.editor.resize()
         },
     })
 </script>
 
 <script type="text/html" data-template-name="venv">
-    <div class="form-row">
-        <label for="node-input-venv"><i class="fa fa-gears"></i> venv</label>
-        <input id="node-input-venv">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="Name"><br>
-        <label for="node-input-python-code"><i class="fa fa-code"></i> Code:</label><br>
-        <div id="node-input-python-code" class="node-text-editor" style="height: 500px; min-height:300px; min-width: 100%"></div><br>
+    <div class="form-row" style="margin-bottom: 15px;">
+        <label style="cursor: unset" for="node-input-name"><i class="fa fa-tag"> </i>Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+
+    <div class="form-row" style="position: relative; margin-bottom: 0px;">
+        <label style="cursor: unset;" for="node-input-code"><i class="fa fa-code"></i> <span>Code</span></label>
+        <input type="hidden" id="node-input-code" autofocus="autofocus" />
+        <button id="node-expand-code-editor" class="red-ui-button red-ui-button-small" style="float:right"><i class="fa fa-expand"></i></button>
+    </div>
+    <div class="form-row node-text-editor-row">
+        <div style="height:500px; min-height:250px; width: 100%" class="node-text-editor" id="node-input-editor"></div>
     </div>
 </script>
 
