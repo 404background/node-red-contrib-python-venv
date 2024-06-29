@@ -3,7 +3,7 @@
         category: 'python',
         color: '#3e7cad',
         defaults: {
-            venv: {value:"pyenv:default", type:"venv-config"},
+            venvconfig: {value:"", type:"venv-config"},
             name: {value:""},
             arg: {value:""},
             action: {value:""}
@@ -13,14 +13,14 @@
         icon: "cog.svg",
         label: function() {
             return this.name||"pip";
-        }
-    });
+        },
+    })
 </script>
 
 <script type="text/html" data-template-name="pip">
     <div class="form-row">
-        <label for="node-input-venv"><i class="fa fa-gears"></i> venv</label>
-        <input id="node-input-venv">
+        <label for="node-input-venvconfig"><i class="fa fa-gears"></i> venv</label>
+        <input id="node-input-venvconfig">
         <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
         <input type="text" id="node-input-name" placeholder="Name"><br>
         <label for="node-input-action"><i class="fa fa-cog"></i> Command</label>

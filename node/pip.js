@@ -2,7 +2,7 @@ module.exports = function(RED) {
     function Pip(config) {
         RED.nodes.createNode(this,config)
         let node = this
-        this.venv = RED.nodes.getNode(config.venv)
+        this.venvconfig = RED.nodes.getNode(config.venvconfig)
 
         let argument = ''
         let action = ''
@@ -10,8 +10,8 @@ module.exports = function(RED) {
         const path = require('path')
         const fs = require('fs')
         let jsonPath = path.join(path.dirname(__dirname), 'pyenv', 'path.json')
-        if(this.venv) {
-            jsonPath = path.join(path.dirname(__dirname), this.venv.venvname, 'path.json')
+        if(this.venvconfig) {
+            jsonPath = path.join(path.dirname(__dirname), this.venvconfig.venvname, 'path.json')
         }
         const json = fs.readFileSync(jsonPath)
         const pathPip = JSON.parse(json).NODE_PYENV_PIP
