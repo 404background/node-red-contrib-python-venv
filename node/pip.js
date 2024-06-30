@@ -15,10 +15,18 @@ module.exports = function(RED) {
         const child_process = require('child_process')
 
         node.on('input', function(msg) {
-            let argument = (config.arg !== null && config.arg !== '' ? config.arg : (msg.payload ?? ""))
+            let argument = ''
             let args = []
             let stdoutData = ''
             let stderrData = ''
+
+            if(typeof config.arg !== 'undefined' && config.arg !== '') {
+                argument = String(config.arg)
+            } else if(typeof msg.payload !== 'undefined' && msg.payload !== ''){
+                argument = String(msg.payload)
+            } else {
+                argument = ''
+            }
 
             switch(config.action) {
                 case 'install':
