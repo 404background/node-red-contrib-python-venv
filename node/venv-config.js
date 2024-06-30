@@ -12,13 +12,13 @@ module.exports = function(RED) {
 
         let command = `python ${setupPath} ${this.venvname}`
         if(typeof this.version !== 'undefined' && this.version !== '') {
-            command = `python ${setupPath} ${venvPath} ${this.version}`
+            command = `python ${setupPath} ${this.venvname} ${this.version}`
         }
         execSync(command)
 
         this.on('close', function(removed, done) {
             if (removed) {
-                fs.rmdirSync(venvPath, { recursive: true, force: true })
+                fs.rmSync(venvPath, { recursive: true, force: true })
             }
             done()
         })

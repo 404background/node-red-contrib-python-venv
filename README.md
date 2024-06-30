@@ -61,3 +61,14 @@ This node uses pip in the virtual environment, so it is different from the exist
 Please compare.  
 
 ![pip-list.jpg](./img/pip-list.jpg)
+
+### venv-config (config node)
+
+You can create and switch between multiple Python virtual environments.  
+You can also specify the Python version only in Windows.  
+
+If not selected in venv and pip nodes, the virtual environment named pyenv will be used.  
+When a configuration node is deleted, the virtual environment with that name is also deleted.  
+
+If you add a node with the same venv Name, only one virtual environment will be created.  
+![venv-config.png](./img/venv-config.png)
