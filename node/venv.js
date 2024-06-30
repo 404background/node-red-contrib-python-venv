@@ -24,10 +24,10 @@ module.exports = function(RED) {
             node.status({fill:"blue", shape:"dot", text: `Script instances running: ${runningScripts}`})
             
             let code = ''
-            if(config.code !== null && config.code !== '') {
+            if(typeof config.code !== 'undefined' && config.code !== '') {
                 code = config.code
             } else {
-                code = msg.code
+                code = msg.code ?? ''
             }
             fs.writeFileSync(filePath, code)
 
