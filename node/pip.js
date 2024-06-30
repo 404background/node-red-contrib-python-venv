@@ -2,6 +2,7 @@ module.exports = function(RED) {
     function Pip(config) {
         RED.nodes.createNode(this,config)
         let node = this
+        this.venvconfig = RED.nodes.getNode(config.venvconfig)
 
         const path = require('path')
         const fs = require('fs')
