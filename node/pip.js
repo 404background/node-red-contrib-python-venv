@@ -2,11 +2,7 @@ module.exports = function(RED) {
     function Pip(config) {
         RED.nodes.createNode(this,config)
         let node = this
-        this.venvconfig = RED.nodes.getNode(config.venvconfig)
 
-        let argument = ''
-        let action = ''
-        let command = ''
         const path = require('path')
         const fs = require('fs')
         let jsonPath = path.join(path.dirname(__dirname), 'pyenv', 'path.json')
@@ -14,44 +10,69 @@ module.exports = function(RED) {
             jsonPath = path.join(path.dirname(__dirname), this.venvconfig.venvname, 'path.json')
         }
         const json = fs.readFileSync(jsonPath)
-        const pathPip = JSON.parse(json).NODE_PYENV_PIP
-        const execSync = require('child_process').execSync
+        const pipPath = JSON.parse(json).NODE_PYENV_PIP
+        const child_process = require('child_process')
 
         node.on('input', function(msg) {
-            if(config.arg !== null && config.arg !== '') {
-                argument = config.arg
-            } else {
-                argument = msg.payload
-            }
+            let argument = (config.arg !== null && config.arg !== '' ? config.arg : (msg.payload ?? ""))
+            let args = []
+            let stdoutData = ''
+            let stderrData = ''
 
             switch(config.action) {
                 case 'install':
-                    action = 'install'
-                    option =  ''
+                    if(argument === '') { 
+                        const errTxt = "Install: No argument provided"
+                        node.status({fill:"red", shape:"dot", text:errTxt})
+                        node.error(errTxt)
+                    } else {
+                        args = ['install', ...argument.split(' ')]
+                    }
                     break
                 case 'uninstall':
-                    action = 'uninstall'
-                    option =  '-y'
+                    if(argument === '') { 
+                        const errTxt = "Uninstall: No argument provided"
+                        node.status({fill:"red", shape:"dot", text:errTxt})
+                        node.error(errTxt)
+                    } else {
+                        args = ['uninstall', '-y', ...argument.split(' ')]
+                    }
                     break
                 case 'list':
-                    action = 'list'
-                    option =  ''
+                    args = ['list']
                     argument = ''
                     break
                 default:
-                    action = ''
-                    option = ''
+                    args = []
                     break
             }
+
+            if(args.length === 0) return
             
-            if(action !== '') {
-                node.status({fill:"blue",shape:"dot",text:`${config.action}ing`})
-            }
- 
-            command = pathPip + ' ' + action + ' ' + option + ' ' + argument
-            msg.payload = String(execSync(command))
-            node.send(msg)
-            node.status({})
+            node.status({fill:"blue",shape:"dot",text:`${config.action}ing ${argument}`})
+
+            const pipProcess = child_process.spawn(pipPath, args)
+
+            pipProcess.on('message', console.log)
+
+            pipProcess.stdout.on('data', (chunk) => {
+                stdoutData += chunk.toString()
+            })
+
+            pipProcess.stderr.on('data', (chunk) => {
+                stderrData += chunk.toString()
+            })
+
+            pipProcess.on('close', (exitCode) => {
+                if (exitCode !== 0) {
+                    node.status({fill:"red", shape:"dot", text:"Error"})
+                    node.error(`Error ${exitCode}: ` + stderrData)
+                } else {
+                    msg.payload = stdoutData
+                    node.send(msg)
+                    node.status({})
+                }
+            })
         })
     }
     RED.nodes.registerType('pip',Pip)
