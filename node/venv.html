@@ -3,6 +3,7 @@
         category: 'python',
         color: '#3e7cad',
         defaults: {
+            venvconfig: {value:"", type:"venv-config"},
             name: {value:""},
             code: {value:""}
         },
@@ -66,6 +67,8 @@
 
 <script type="text/html" data-template-name="venv">
     <div class="form-row" style="margin-bottom: 15px;">
+        <label for="node-input-venvconfig"><i class="fa fa-gears"></i> venv</label>
+        <input id="node-input-venvconfig">
         <label style="cursor: unset" for="node-input-name"><i class="fa fa-tag"> </i>Name</label>
         <input type="text" id="node-input-name" placeholder="Name">
     </div>

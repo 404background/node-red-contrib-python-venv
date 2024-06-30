@@ -5,7 +5,7 @@
   "main": "node/venv.js",
   "scripts": {
     "test": "mocha test/**/*_spec.js",
-    "preinstall": "python setup.py"
+    "preinstall": "python setup.py pyenv"
   },
   "engines": {
     "node": ">=14.0.0"
@@ -14,7 +14,8 @@
     "version": ">=1.3.7",
     "nodes": {
       "venv": "node/venv.js",
-      "pip": "node/pip.js"
+      "pip": "node/pip.js",
+      "venv-config": "node/venv-config.js"
     }
   },
   "repository": {

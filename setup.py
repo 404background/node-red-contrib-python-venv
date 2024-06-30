@@ -1,22 +1,34 @@
 import subprocess
 import os
 import json
+import sys
+
+venvName = sys.argv[1]
 
 absDir = os.path.dirname(os.path.abspath(__file__))
-subprocess.run(['python', '-m', 'venv', 'pyenv'])
+
+if os.path.isdir(f'{absDir}/{venvName}'):
+    print(f'{venvName} already exists.')
+    sys.exit()
 
 if os.name == 'nt':
-    subprocess.run([f'{absDir}/pyenv/Scripts/python.exe', '-m', 'pip', 'install', '--upgrade', 'pip'])
+    if len(sys.argv) == 3:
+        version = sys.argv[2]
+        subprocess.run(['py', f'-{version}', '-m', 'venv', f'{absDir}/{venvName}'])
+    else:
+        subprocess.run(['python', '-m', 'venv', f'{absDir}/{venvName}'])
+    subprocess.run([f'{absDir}/{venvName}/Scripts/python.exe', '-m', 'pip', 'install', '--upgrade', 'pip'])
     path = {
-        'NODE_PYENV_PYTHON': f'{absDir}/pyenv/Scripts/python.exe',
-        'NODE_PYENV_PIP': f'{absDir}/pyenv/Scripts/pip.exe'
+        'NODE_PYENV_PYTHON': f'{absDir}/{venvName}/Scripts/python.exe',
+        'NODE_PYENV_PIP': f'{absDir}/{venvName}/Scripts/pip.exe'
     }
 else:
-    subprocess.run([f'{absDir}/pyenv/bin/python', '-m', 'pip', 'install', '--upgrade', 'pip'])
+    subprocess.run(['python', '-m', 'venv', f'{absDir}/{venvName}'])
+    subprocess.run([f'{absDir}/{venvName}/bin/python', '-m', 'pip', 'install', '--upgrade', 'pip'])
     path = {
-        'NODE_PYENV_PYTHON': f'{absDir}/pyenv/bin/python',
-        'NODE_PYENV_PIP': f'{absDir}/pyenv/bin/pip'
+        'NODE_PYENV_PYTHON': f'{absDir}/{venvName}/bin/python',
+        'NODE_PYENV_PIP': f'{absDir}/{venvName}/bin/pip'
     }
 
-with open(f'{absDir}/path.json', 'w') as f:
+with open(f'{absDir}/{venvName}/path.json', 'w') as f:
     json.dump(path, f, indent=4)
