@@ -7,7 +7,7 @@ Node for python virtual environment
 With this node, you can run Python programs.  
 
 When you install this node, python virtual environment (pyenv folder) is also created.  
-You can run python.exe or pip.exe in that environment.
+You can run python(.exe) or pip(.exe) in that environment.
 
 ## Test Case
 
@@ -18,25 +18,17 @@ Windows 10
 - Python: 3.8.3
 - pip: 24.0
 
-Raspberry Pi
-
-- Debian bookworm
-- Node.js: v18.19.0
-- npm: 9.2.0
-- Python: 3.11.2
-- pip: 24.0
-
 Sample flows are in the examples folder.  
-![sample-flow.jpg](./img/sample-flow.jpg)
+![sample-flow.png](./img/sample-flow.png)
 
 ## Nodes
 
 ### venv node
 
-python.exe is in the ./pyenv/Scripts/python.exe  
+python(.exe) is in the ./pyenv/Scripts/python.exe or Python virtual environment you have added.  
 
 Write your Python code in the node.  
-The program is saved in a tmp folder and executed.  
+The program is saved in the virtual environment and executed.  
 
 ![venv-node.jpg](./img/venv-node.png)
 
@@ -48,12 +40,16 @@ You can access Node-RED messages like `print(msg['payload'])`.
 
 ![msg-property-inject.png](./img/msg-property-inject.png)
 
+The number of running nodes is displayed in the status.  
+
+![running-status.png](./img/running-status.png)
+
 ### pip node
 
-pip.exe is in the ./pyenv/Scripts/pip.exe  
+pip(.exe) is in the ./pyenv/Scripts/pip.exe or Python virtual environment you have added.  
 
-You can run pip commands like install, uninstall, list, etc.  
-Select the options.  
+You can run pip commands like install, uninstall, list.  
+Select the commands.  
 
 ![pip-node.jpg](./img/pip-node.png)
 
@@ -65,7 +61,7 @@ Please compare.
 ### venv-config (config node)
 
 You can create and switch between multiple Python virtual environments.  
-You can also specify the Python version only in Windows.  
+You can also specify the Python version **only in Windows**.  
 
 If not selected in venv and pip nodes, the virtual environment named pyenv will be used.  
 When a configuration node is deleted, the virtual environment with that name is also deleted.  
