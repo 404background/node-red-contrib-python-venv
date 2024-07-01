@@ -68,3 +68,21 @@ When a configuration node is deleted, the virtual environment with that name is 
 
 If you add a node with the same venv Name, only one virtual environment will be created.  
 ![venv-config.png](./img/venv-config.png)
+
+## Other Links
+
+### Technical Articles
+
+I refer to "Creating Nodes" page of Node-RED.  
+<https://nodered.org/docs/creating-nodes/>  
+
+My article about python-venv (version 0.0.2)  
+<https://404background.com/program/node-create-python-venv/>  
+
+### Nodes created based on this node
+
+voicevox-core node: Node that outputs Japanese audio files using voicevox-core  
+<https://flows.nodered.org/node/@background404/node-red-contrib-voicevox-core>  
+
+whisper node: Node to transcribe text using Open AI's Whisper  
+<https://flows.nodered.org/node/@background404/node-red-contrib-whisper>  
