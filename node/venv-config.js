@@ -10,9 +10,9 @@ module.exports = function(RED) {
         const setupPath = path.join(path.dirname(__dirname), 'setup.py')
         let venvPath = path.join(path.dirname(__dirname), this.venvname)
 
-        let command = `python ${setupPath} ${this.venvname}`
+        let command = `python ${setupPath} '${this.venvname}'`
         if(typeof this.version !== 'undefined' && this.version !== '') {
-            command = `python ${setupPath} ${this.venvname} ${this.version}`
+            command += ` ${this.version}`
         }
         execSync(command)
 

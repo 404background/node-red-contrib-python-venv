@@ -1,15 +1,18 @@
 module.exports = function(RED) {
     function Pip(config) {
         RED.nodes.createNode(this,config)
-        let node = this
+        const node = this
         this.venvconfig = RED.nodes.getNode(config.venvconfig)
 
         const path = require('path')
         const fs = require('fs')
-        let jsonPath = path.join(path.dirname(__dirname), 'pyenv', 'path.json')
-        if(this.venvconfig) {
-            jsonPath = path.join(path.dirname(__dirname), this.venvconfig.venvname, 'path.json')
+        
+        if(!this.venvconfig) {
+            node.send({ payload:"Missing virtual environment configuration"})
+            return
         }
+
+        const jsonPath = path.join(path.dirname(__dirname), this.venvconfig.venvname, 'path.json')
         const json = fs.readFileSync(jsonPath)
         const pipPath = JSON.parse(json).NODE_PYENV_PIP
         const child_process = require('child_process')
