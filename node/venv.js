@@ -1,23 +1,25 @@
 module.exports = function(RED) {
     function Venv(config) {
         RED.nodes.createNode(this,config)
-        let node = this
+        const node = this
         this.venvconfig = RED.nodes.getNode(config.venvconfig)
-        node.status({fill:"green", shape:"dot", text:"Standby"})
-        let runningScripts = 0
+
+        if(!this.venvconfig) {
+            node.send({ payload:"Missing virtual environment configuration"})
+            return
+        }
 
         const fs = require('fs')
         const path = require('path')
         const child_process = require('child_process')
 
-        let jsonPath = path.join(path.dirname(__dirname), 'pyenv', 'path.json')
-        let filePath = path.join(path.dirname(__dirname), 'tmp', this.id + '.py')
-        if(this.venvconfig) {
-            jsonPath = path.join(path.dirname(__dirname), this.venvconfig.venvname, 'path.json')
-            filePath = path.join(path.dirname(__dirname), this.venvconfig.venvname, this.id + '.py')
-        }
-        let json = fs.readFileSync(jsonPath)
-        let pythonPath = JSON.parse(json).NODE_PYENV_PYTHON
+        node.status({fill:"green", shape:"dot", text:"Standby"})
+        let runningScripts = 0
+
+        const jsonPath = path.join(path.dirname(__dirname), this.venvconfig.venvname, 'path.json')
+        const filePath = path.join(path.dirname(__dirname), this.venvconfig.venvname, this.id + '.py')
+        const json = fs.readFileSync(jsonPath)
+        const pythonPath = JSON.parse(json).NODE_PYENV_PYTHON
 
         node.on('input', function(msg) {
             runningScripts++
