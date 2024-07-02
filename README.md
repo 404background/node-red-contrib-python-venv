@@ -68,6 +68,9 @@ You can also specify the Python version **only in Windows**.
 When a configuration node is deleted, the virtual environment with that name is also deleted.  
 If you add a node with the same venv Name, only one virtual environment will be created.  
 
+The nodes can be executed by creating virtual environments even if the venv Name contains spaces or is an absolute path.  
+![venv-config-abspath.png](./img/venv-config-abspath.png)  
+
 ## Other Links
 
 ### Technical Articles
