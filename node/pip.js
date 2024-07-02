@@ -12,7 +12,10 @@ module.exports = function(RED) {
             return
         }
 
-        const jsonPath = path.join(path.dirname(__dirname), this.venvconfig.venvname, 'path.json')
+        let jsonPath = path.join(path.dirname(__dirname), this.venvconfig.venvname, 'path.json')
+        if(path.isAbsolute(this.venvconfig.venvname)) {
+            jsonPath = path.join(this.venvconfig.venvname, 'path.json')
+        }
         const json = fs.readFileSync(jsonPath)
         const pipPath = JSON.parse(json).NODE_PYENV_PIP
         const child_process = require('child_process')

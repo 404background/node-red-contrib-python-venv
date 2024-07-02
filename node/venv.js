@@ -16,8 +16,12 @@ module.exports = function(RED) {
         node.status({fill:"green", shape:"dot", text:"Standby"})
         let runningScripts = 0
 
-        const jsonPath = path.join(path.dirname(__dirname), this.venvconfig.venvname, 'path.json')
-        const filePath = path.join(path.dirname(__dirname), this.venvconfig.venvname, this.id + '.py')
+        let jsonPath = path.join(path.dirname(__dirname), this.venvconfig.venvname, 'path.json')
+        let filePath = path.join(path.dirname(__dirname), this.venvconfig.venvname, this.id + '.py')
+        if(path.isAbsolute(this.venvconfig.venvname)) {
+            jsonPath = path.join(this.venvconfig.venvname, 'path.json')
+            filePath = path.join(this.venvconfig.venvname, this.id + '.py')
+        }
         const json = fs.readFileSync(jsonPath)
         const pythonPath = JSON.parse(json).NODE_PYENV_PYTHON
 
