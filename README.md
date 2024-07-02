@@ -67,7 +67,10 @@ If not selected in venv and pip nodes, the virtual environment named pyenv will 
 When a configuration node is deleted, the virtual environment with that name is also deleted.  
 
 If you add a node with the same venv Name, only one virtual environment will be created.  
-![venv-config.png](./img/venv-config.png)
+![venv-config.png](./img/venv-config.png)  
+
+The nodes can be executed by creating virtual environments even if the venv Name contains spaces or is an absolute path.  
+![venv-config-abspath.png](./img/venv-config-abspath.png)  
 
 ## Other Links
 
