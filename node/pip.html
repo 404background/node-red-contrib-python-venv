@@ -1,52 +1,61 @@
 <script type="text/javascript">
-    RED.nodes.registerType('pip',{
-        category: 'python',
-        color: '#3e7cad',
-        defaults: {
-            venvconfig: {value:"", type:"venv-config"},
-            name: {value:""},
-            arg: {value:""},
-            action: {value:""}
-        },
-        inputs: 1,
-        outputs: 1,
-        icon: "cog.svg",
-        label: function() {
-            return this.name||"pip";
-        },
-    })
+  RED.nodes.registerType('pip', {
+    category: 'python',
+    color: '#3e7cad',
+    defaults: {
+      venvconfig: { value: '', type: 'venv-config' },
+      name: { value: '' },
+      arg: { value: '' },
+      action: { value: '' },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'cog.svg',
+    label: function () {
+      return this.name || 'pip'
+    },
+  })
 </script>
 
 <script type="text/html" data-template-name="pip">
-    <div class="form-row">
-        <label for="node-input-venvconfig"><i class="fa fa-gears"></i> venv</label>
-        <input id="node-input-venvconfig">
-    </div>
-    <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="Name">
-    </div>
-    <div class="form-row">
-        <label for="node-input-action"><i class="fa fa-cog"></i> Command</label>
-        <select id="node-input-action" name="action">
-            <option value="install">install</option>
-            <option value="uninstall">uninstall</option>
-            <option value="list">list</option>
-        </select>
-    </div>
-    <div class="form-row">
-        <label for="node-input-arg"><i class="fa fa-tag"></i> arg</label>
-        <input type="text" id="node-input-arg" placeholder="argument">
-    </div>
+  <div class="form-row">
+    <label for="node-input-venvconfig"><i class="fa fa-gears"></i> venv</label>
+    <input id="node-input-venvconfig" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-action"><i class="fa fa-cog"></i> Command</label>
+    <select id="node-input-action" name="action">
+      <option value="install">install</option>
+      <option value="uninstall">uninstall</option>
+      <option value="list">list</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-arg"><i class="fa fa-tag"></i> arg</label>
+    <input type="text" id="node-input-arg" placeholder="argument" />
+  </div>
 </script>
 
 <script type="text/html" data-help-name="pip">
-    <p>This node is used to interact with pip for the virtual environment. The following commands are available: </p>
-    <ul>
-        <li>install</li>
-        <li>uninstall</li>
-        <li>list</li>
-    </ul> 
-    <p>For the commands <i>install</i> or <i>uninstall</i> the arg(s) are passed directly to pip.</p>
-    <p>Args can be set either directly in the node or provided dynamically by setting <code>msg.payload</code>.</p>
+  <p>
+    This node is used to interact with pip for the virtual environment. The
+    following commands are available:
+  </p>
+  <ul>
+    <li>install</li>
+    <li>uninstall</li>
+    <li>list</li>
+  </ul>
+  <p>
+    For the commands <i>install</i> or <i>uninstall</i> the arg(s) are passed
+    directly to pip.
+  </p>
+  <p>
+    Args can be set either directly in the node or provided dynamically by
+    setting <code>msg.payload</code>.
+  </p>
 </script>
