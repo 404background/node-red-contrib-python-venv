@@ -73,7 +73,7 @@ module.exports = function (RED) {
         node.status({
           fill: 'blue',
           shape: 'dot',
-          text: `Script running continuously`,
+          text: `Script running in continuous mode`,
         })
       } else {
         runningScripts++
@@ -136,12 +136,19 @@ module.exports = function (RED) {
           }
           node.standby = true
         }
-        // Continuous mode, if the process is not undefined it was not killed and a new process has been started instead
+        // In continuous mode, if the pythonProcess is null the process was killed otherwise a new process was started or it has exited cleanly
         else if (pythonProcess === undefined) {
           node.status({
             fill: 'yellow',
             shape: 'dot',
             text: 'Continuously running script terminated',
+          })
+          node.standby = true
+        } else if (exitCode === 0) {
+          node.status({
+            fill: 'green',
+            shape: 'dot',
+            text: 'Standby',
           })
           node.standby = true
         }
