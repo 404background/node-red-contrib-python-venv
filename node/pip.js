@@ -24,7 +24,9 @@ module.exports = function (RED) {
     const pipPath = JSON.parse(json).NODE_PYENV_PIP
     const child_process = require('child_process')
 
-    node.on('input', function (msg) {
+    const tail = config.tail || false
+
+    node.on('input', function (msg, send, done) {
       let argument = ''
       let args = []
       let stdoutData = ''
@@ -80,6 +82,12 @@ module.exports = function (RED) {
 
       pipProcess.stdout.on('data', chunk => {
         stdoutData += chunk.toString()
+
+        if (tail && stdoutData.endsWith('\n')) {
+          msg.payload = stdoutData
+          send(msg)
+          stdoutData = ''
+        }
       })
 
       pipProcess.stderr.on('data', chunk => {
@@ -89,10 +97,20 @@ module.exports = function (RED) {
       pipProcess.on('close', exitCode => {
         if (exitCode !== 0) {
           node.status({ fill: 'red', shape: 'dot', text: 'Error' })
-          node.error(`Error ${exitCode}: ` + stderrData)
+          const err = `Error ${code}${
+            stderrData === '' ? '' : `: ${stderrData}`
+          }`
+          if (done) {
+            done(err)
+          } else {
+            node.error(err)
+          }
         } else {
           msg.payload = stdoutData
           node.send(msg)
+          if (done) {
+            done()
+          }
           node.status({})
         }
       })
