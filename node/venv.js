@@ -37,14 +37,13 @@ module.exports = function (RED) {
 
     let pythonProcess = undefined
     node.standby = true
-    node.on('input', function (msg) {
+    node.on('input', function (msg, send, done) {
       node.standby = false
 
       // Checks if the continuous flag is set and if so then kill the process and set it to undefined.
       // If terminate is set to true return without starting a new continuous process.
       if (continuous) {
         pythonProcess?.kill()
-        pythonProcess = undefined
         if (msg.terminate === true) {
           return
         }
@@ -66,6 +65,7 @@ module.exports = function (RED) {
 
       let stdoutData = ''
       let stderrData = ''
+      let rollingStderrData = ''
 
       if (continuous) {
         // Disable stdout and stderr buffering
@@ -94,33 +94,40 @@ module.exports = function (RED) {
         // In continuous mode, send the output line by line
         if (continuous && stdoutData.endsWith('\n')) {
           msg.payload = stdoutData
-          node.send(msg)
+          send(msg)
           stdoutData = ''
         }
       })
 
       pythonProcess.stderr.on('data', chunk => {
-        stderrData += chunk.toString()
-
-        // In continuous mode, send the output line by line
-        if (continuous && stderrData.endsWith('\n')) {
-          msg.payload = stderrData
-          node.error(msg)
-          stderrData = ''
+        const err = chunk.toString()
+        stderrData += err
+        rollingStderrData += err
+        // In continuous mode, send errors line by line
+        if (continuous && rollingStderrData.endsWith('\n')) {
+          node.error(rollingStderrData)
+          rollingStderrData = ''
         }
       })
 
-      pythonProcess.on('close', exitCode => {
-        // If exit code is null the process was continuous and killed
-        if (exitCode !== null && exitCode !== 0) {
+      pythonProcess.on('exit', (code, signal) => {
+        // If signal is null and the exit code is not 0, then the process exited with an error
+        if (signal === null && code !== 0) {
           node.status({ fill: 'red', shape: 'dot', text: 'Error' })
-          node.error(`Error ${exitCode}: ` + stderrData)
+          const err = `Error ${code}${
+            stderrData === '' ? '' : `: ${stderrData}`
+          }`
+          if (done) {
+            done(err)
+          } else {
+            node.error(err)
+          }
         }
         // Single mode, send the output
         else if (!continuous) {
           runningScripts--
           msg.payload = stdoutData
-          node.send(msg)
+          send(msg)
           if (runningScripts === 0) {
             node.status({
               fill: 'green',
@@ -136,15 +143,15 @@ module.exports = function (RED) {
           }
           node.standby = true
         }
-        // In continuous mode, if the pythonProcess is null the process was killed otherwise a new process was started or it has exited cleanly
-        else if (pythonProcess === undefined) {
+        // In continuous mode, check if the process was killed or if it has exited cleanly
+        else if (pythonProcess.killed) {
           node.status({
             fill: 'yellow',
             shape: 'dot',
             text: 'Continuously running script terminated',
           })
           node.standby = true
-        } else if (exitCode === 0) {
+        } else if (code === 0) {
           node.status({
             fill: 'green',
             shape: 'dot',
@@ -152,7 +159,16 @@ module.exports = function (RED) {
           })
           node.standby = true
         }
+
+        done()
       })
+    })
+    // Clean up the python process on node close
+    this.on('close', function (_removed, done) {
+      if (pythonProcess) {
+        pythonProcess.kill()
+      }
+      done()
     })
   }
 
