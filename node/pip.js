@@ -97,7 +97,7 @@ module.exports = function (RED) {
       pipProcess.on('close', exitCode => {
         if (exitCode !== 0) {
           node.status({ fill: 'red', shape: 'dot', text: 'Error' })
-          const err = `Error ${code}${
+          const err = `Error ${exitCode}${
             stderrData === '' ? '' : `: ${stderrData}`
           }`
           if (done) {
