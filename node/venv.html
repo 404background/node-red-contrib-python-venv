@@ -31,7 +31,7 @@
         cursor.row = cursor.row - 1
         RED.editor.editText({
           mode: 'python',
-          title: 'Code editor',
+          title: 'Code Editor',
           value: editor.getValue(),
           width: 'Infinity',
           cursor: cursor,
@@ -113,19 +113,17 @@
 
 <script type="text/html" data-template-name="venv">
   <div class="form-row">
-    <label style="cursor: unset" for="node-input-name"
-      ><i class="fa fa-tag"> </i>Name</label
-    >
+    <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="venv.name"></label>
     <input type="text" id="node-input-name" placeholder="Name" />
   </div>
 
   <div class="form-row">
-    <label for="node-input-venvconfig"><i class="fa fa-gears"></i> venv</label>
+    <label for="node-input-venvconfig"><i class="fa fa-gears"></i> <span data-i18n="venv.venvName"></label>
     <input id="node-input-venvconfig" />
   </div>
 
   <div class="form-row">
-    <label>Continuous</label>
+    <label> <span data-i18n="venv.continuous"></label>
     <input
       type="checkbox"
       id="node-input-continuous"
@@ -135,7 +133,7 @@
 
   <div class="form-row" style="position: relative; margin-bottom: 0px;">
     <label style="cursor: unset;" for="node-input-code"
-      ><i class="fa fa-code"></i> <span>Code</span></label
+      ><i class="fa fa-code"></i> <span> <span data-i18n="venv.code"></span></label
     >
     <input type="hidden" id="node-input-code" autofocus="autofocus" />
     <button

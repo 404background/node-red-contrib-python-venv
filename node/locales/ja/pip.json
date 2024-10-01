@@ -1,0 +1,9 @@
+{
+  "pip": {
+    "name": "名前",
+    "venvName": "仮想環境",
+    "command": "コマンド",
+    "argument": "引数",
+    "tail": "順次出力"
+  }
+}

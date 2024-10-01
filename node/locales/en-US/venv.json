@@ -1,0 +1,9 @@
+{
+  "venv": {
+    "name": "Name",
+    "codeEditor": "Code Editor",
+    "venvName": "Venv",
+    "continuous": "Continuous",
+    "code": "Code"
+  }
+}

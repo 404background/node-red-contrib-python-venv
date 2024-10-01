@@ -20,27 +20,31 @@
 
 <script type="text/html" data-template-name="pip">
   <div class="form-row">
-    <label for="node-input-venvconfig"><i class="fa fa-gears"></i> venv</label>
-    <input id="node-input-venvconfig" />
-  </div>
-  <div class="form-row">
-    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="pip.name"></label>
     <input type="text" id="node-input-name" placeholder="Name" />
   </div>
+
   <div class="form-row">
-    <label for="node-input-action"><i class="fa fa-cog"></i> Command</label>
+    <label for="node-input-venvconfig"><i class="fa fa-gears"></i> <span data-i18n="pip.venvName"></label>
+    <input id="node-input-venvconfig" />
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-action"><i class="fa fa-cog"></i> <span data-i18n="pip.command"></label>
     <select id="node-input-action" name="action">
       <option value="install">install</option>
       <option value="uninstall">uninstall</option>
       <option value="list">list</option>
     </select>
   </div>
+
   <div class="form-row">
-    <label for="node-input-arg"><i class="fa fa-tag"></i> arg</label>
+    <label for="node-input-arg"><i class="fa fa-tag"></i> <span data-i18n="pip.argument"></label>
     <input type="text" id="node-input-arg" placeholder="argument" />
   </div>
+
   <div class="form-row">
-    <label>Tail</label>
+    <label> <span data-i18n="pip.tail"></label>
     <input
       type="checkbox"
       id="node-input-tail"
