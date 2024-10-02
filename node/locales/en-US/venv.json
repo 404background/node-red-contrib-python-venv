@@ -4,6 +4,10 @@
     "codeEditor": "Code Editor",
     "venvName": "Venv",
     "continuous": "Continuous",
-    "code": "Code"
+    "code": "Code",
+    "standby": "Standby",
+    "running-continuous": "Running Continuous",
+    "error": "Error",
+    "terminate-continuous": "Terminated"
   }
 }
