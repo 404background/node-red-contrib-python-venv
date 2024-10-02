@@ -1,0 +1,7 @@
+{
+  "venv-config": {
+    "venvName": "Venv Name",
+    "version": "Version",
+    "tips": "When you deploy, it takes time to create or remove the Python virtual environment."
+  }
+}

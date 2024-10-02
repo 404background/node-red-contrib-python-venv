@@ -13,7 +13,8 @@ module.exports = function (RED) {
     const path = require('path')
     const child_process = require('child_process')
 
-    node.status({ fill: 'green', shape: 'dot', text: 'Standby' })
+    node.status({ fill: 'green', shape: 'dot', text: 'venv.standby' })
+    const runningText = "Running: "
     let runningScripts = 0
 
     let jsonPath = path.join(
@@ -73,14 +74,14 @@ module.exports = function (RED) {
         node.status({
           fill: 'blue',
           shape: 'dot',
-          text: `Script running in continuous mode`,
+          text: 'venv.running-continuous',
         })
       } else {
         runningScripts++
         node.status({
           fill: 'blue',
           shape: 'dot',
-          text: `Script instances running: ${runningScripts}`,
+          text: runningText + runningScripts,
         })
       }
 
@@ -113,7 +114,7 @@ module.exports = function (RED) {
       pythonProcess.on('exit', (code, signal) => {
         // If signal is null and the exit code is not 0, then the process exited with an error
         if (signal === null && code !== 0) {
-          node.status({ fill: 'red', shape: 'dot', text: 'Error' })
+          node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
           const err = `Error ${code}${
             stderrData === '' ? '' : `: ${stderrData}`
           }`
@@ -132,13 +133,13 @@ module.exports = function (RED) {
             node.status({
               fill: 'green',
               shape: 'dot',
-              text: 'Standby',
+              text: 'venv.standby',
             })
           } else {
             node.status({
               fill: 'blue',
               shape: 'dot',
-              text: `Script instances running: ${runningScripts}`,
+              text: runningText + runningScripts,
             })
           }
           node.standby = true
@@ -148,14 +149,14 @@ module.exports = function (RED) {
           node.status({
             fill: 'yellow',
             shape: 'dot',
-            text: 'Continuously running script terminated',
+            text: 'venv.terminate-continuous',
           })
           node.standby = true
         } else if (code === 0) {
           node.status({
             fill: 'green',
             shape: 'dot',
-            text: 'Standby',
+            text: 'venv.standby',
           })
           node.standby = true
         }

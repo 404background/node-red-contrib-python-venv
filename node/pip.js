@@ -31,6 +31,7 @@ module.exports = function (RED) {
       let args = []
       let stdoutData = ''
       let stderrData = ''
+      let runningText = ''
 
       if (typeof config.arg !== 'undefined' && config.arg !== '') {
         argument = String(config.arg)
@@ -43,25 +44,34 @@ module.exports = function (RED) {
       switch (config.action) {
         case 'install':
           if (argument === '') {
-            const errTxt = 'Install: No argument provided'
-            node.status({ fill: 'red', shape: 'dot', text: errTxt })
-            node.error(errTxt)
+            node.status({
+              fill: 'red',
+              shape: 'dot',
+              text: 'pip.error-argument',
+            })
+            node.error('No argument provided')
           } else {
             args = ['install', ...argument.split(' ')]
           }
+          runningText = "Installing "
           break
         case 'uninstall':
           if (argument === '') {
-            const errTxt = 'Uninstall: No argument provided'
-            node.status({ fill: 'red', shape: 'dot', text: errTxt })
-            node.error(errTxt)
+            node.status({
+              fill: 'red',
+              shape: 'dot',
+              text: 'pip.error-argument',
+            })
+            node.error('No argument provided')
           } else {
             args = ['uninstall', '-y', ...argument.split(' ')]
           }
+          runningText = "Uninstalling "
           break
         case 'list':
           args = ['list']
           argument = ''
+          runningText = "Listing "
           break
         default:
           args = []
@@ -73,7 +83,7 @@ module.exports = function (RED) {
       node.status({
         fill: 'blue',
         shape: 'dot',
-        text: `${config.action}ing ${argument}`,
+        text: runningText + argument,
       })
 
       const pipProcess = child_process.spawn(pipPath, args)
@@ -96,7 +106,7 @@ module.exports = function (RED) {
 
       pipProcess.on('close', exitCode => {
         if (exitCode !== 0) {
-          node.status({ fill: 'red', shape: 'dot', text: 'Error' })
+          node.status({ fill: 'red', shape: 'dot', text: 'pip.error' })
           const err = `Error ${exitCode}${
             stderrData === '' ? '' : `: ${stderrData}`
           }`

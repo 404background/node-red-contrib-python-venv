@@ -1,0 +1,11 @@
+{
+  "pip": {
+    "name": "Name",
+    "venvName": "Venv",
+    "command": "Command",
+    "argument": "Argument",
+    "tail": "Sequential Output",
+    "error-argument": "No argument provided",
+    "error": "Error"
+  }
+}

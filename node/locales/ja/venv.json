@@ -1,0 +1,13 @@
+{
+  "venv": {
+    "name": "名前",
+    "codeEditor": "コードエディタ",
+    "venvName": "仮想環境",
+    "continuous": "連続実行",
+    "code": "コード",
+    "standby": "待機",
+    "running-continuous": "連続実行中",
+    "error": "エラー",
+    "terminate-continuous": "連続実行終了"
+  }
+}

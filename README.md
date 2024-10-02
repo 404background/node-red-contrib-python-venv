@@ -82,7 +82,7 @@ My article about python-venv (version 0.0.2)
 In Japanese: Node-REDのノードを作成してみる　その１（python-venv）  
 <https://404background.com/program/node-create-python-venv/>  
 In English: Creating Nodes for Node-RED Part 1 (python-venv)  
-<https://404background.com/en/programming/creating-nodes-1/>  
+<https://404background.com/en/programming/creating-nodes-1/>
 
 ### Nodes created based on this node
 
