@@ -60,7 +60,7 @@ module.exports = function (RED) {
       const message = Buffer.from(JSON.stringify(msg)).toString('base64')
       const args = [
         '-c',
-        `import base64;import json;msg=json.loads(base64.b64decode(r'${message}'));exec(open(r'${filePath}').read())`,
+        `import base64;import json;msg=json.loads(base64.b64decode(r'${message}').decode('utf-8'));exec(open(r'${filePath}', encoding='utf-8').read())`,
       ]
 
       let stdoutData = ''
