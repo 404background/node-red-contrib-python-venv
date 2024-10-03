@@ -1,0 +1,22 @@
+<script type="text/html" data-help-name="pip">
+  <p>
+    このノードではpipコマンドを利用できます。 以下のコマンドを選択できます。
+  </p>
+  <ul>
+    <li>install</li>
+    <li>uninstall</li>
+    <li>list</li>
+  </ul>
+  <p>
+    <i>install</i
+    >または<i>uninstall</i>を選択した場合、引数を指定して実行できます。
+  </p>
+  <p>
+    引数はノード内または<code>msg.payload</code>で動的に指定することができます。
+  </p>
+  <h3>順次出力</h3>
+  <h4>順次出力が有効でない場合：</h4>
+  <p>コマンドの実行が終了してからメッセージが送信されます。</p>
+  <h4>順次出力が有効な場合：</h4>
+  <p>出力があれば順次メッセージが送られます。</p>
+</script>
