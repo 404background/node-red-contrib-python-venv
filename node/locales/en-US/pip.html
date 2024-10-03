@@ -1,0 +1,24 @@
+<script type="text/html" data-help-name="pip">
+  <p>
+    This node is used to interact with pip for the virtual environment. The
+    following commands are available:
+  </p>
+  <ul>
+    <li>install</li>
+    <li>uninstall</li>
+    <li>list</li>
+  </ul>
+  <p>
+    For the commands <i>install</i> or <i>uninstall</i> the arg(s) are passed
+    directly to pip.
+  </p>
+  <p>
+    Args can be set either directly in the node or provided dynamically by
+    setting <code>msg.payload</code>.
+  </p>
+  <h3>Sequential Output</h3>
+  <h4>If sequential output is not enabled:</h4>
+  <p>this node sends messages after the command has finished execution.</p>
+  <h4>If sequential output is enabled:</h4>
+  <p>messages are sent sequentially as output is available.</p>
+</script>
