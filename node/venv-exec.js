@@ -1,20 +1,17 @@
 module.exports = function (RED) {
   const fs = require('fs')
   const path = require('path')
-  const { spawn } = require('child_process')
+  const child_process = require('child_process')
 
   function VenvExec(config) {
     RED.nodes.createNode(this, config)
     const node = this
     this.venvconfig = RED.nodes.getNode(config.venvconfig)
-    this.mode = config.mode
-    this.executable = config.executable
-    this.arguments = config.arguments
-
     if (!this.venvconfig) {
       node.send({ payload: 'Missing virtual environment configuration' })
       return
     }
+
     let jsonPath = path.join(
       path.dirname(__dirname),
       this.venvconfig.venvname,
@@ -23,12 +20,14 @@ module.exports = function (RED) {
     if (path.isAbsolute(this.venvconfig.venvname)) {
       jsonPath = path.join(this.venvconfig.venvname, 'path.json')
     }
+
     const json = fs.readFileSync(jsonPath)
     const venvExec = JSON.parse(json).NODE_PYENV_EXEC
+    let execPath = ''
     node.status({ fill: 'green', shape: 'dot', text: 'Standby' })
 
     node.on('input', function (msg, send, done) {
-      if (node.mode === 'list') {
+      if (config.mode === 'list') {
         fs.readdir(venvExec, (err, files) => {
           if (err) {
             node.error('Error:', err)
@@ -39,9 +38,27 @@ module.exports = function (RED) {
           send(msg)
           done()
         })
-      } else if (node.mode === 'execute') {
-        const execPath = path.join(venvExec, node.executable)
-        const args = node.arguments.split(' ').filter(arg => arg)
+      } else if (config.mode === 'execute') {
+        if (
+          typeof config.arguments !== 'undefined' &&
+          config.arguments !== ''
+        ) {
+          argument = String(config.arguments)
+        } else if (typeof msg.payload !== 'undefined' && msg.payload !== '') {
+          argument = String(msg.payload)
+        } else {
+          argument = ''
+        }
+        const args = argument.split(' ').filter(arg => arg)
+
+        if (
+          typeof config.executable !== 'undefined' &&
+          config.executable !== ''
+        ) {
+          execPath = path.join(venvExec, config.executable)
+        } else {
+          return
+        }
 
         fs.access(execPath, fs.constants.F_OK, err => {
           if (err) {
@@ -51,22 +68,20 @@ module.exports = function (RED) {
             return
           }
 
-          node.status({ fill: 'blue', shape: 'dot', text: 'Executing' })
-
-          const child = spawn(execPath, args)
-
+          const execute = child_process.spawn(execPath, args)
           let stdoutData = ''
           let stderrData = ''
+          node.status({ fill: 'blue', shape: 'dot', text: 'Executing' })
 
-          child.stdout.on('data', chunk => {
+          execute.stdout.on('data', chunk => {
             stdoutData += chunk.toString()
           })
 
-          child.stderr.on('data', chunk => {
+          execute.stderr.on('data', chunk => {
             stderrData += chunk.toString()
           })
 
-          child.on('exit', code => {
+          execute.on('exit', code => {
             if (code !== 0) {
               node.status({ fill: 'red', shape: 'dot', text: `Error: ${code}` })
               node.error(`Error: ${code}. ${stderrData}`)
