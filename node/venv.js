@@ -14,7 +14,7 @@ module.exports = function (RED) {
     const child_process = require('child_process')
 
     node.status({ fill: 'green', shape: 'dot', text: 'venv.standby' })
-    const runningText = "Running: "
+    const runningText = 'Running: '
     let runningScripts = 0
 
     let jsonPath = path.join(

@@ -1,0 +1,70 @@
+<script type="text/javascript">
+  RED.nodes.registerType('venv-exec', {
+    category: 'python',
+    color: '#3e7cad',
+    defaults: {
+      name: { value: '' },
+      venvconfig: { value: '', type: 'venv-config', required: true },
+      mode: { value: 'list' },
+      executable: { value: '' },
+      arguments: { value: '' },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'cog.svg',
+    label: function () {
+      return this.name || 'exec'
+    },
+    oneditprepare: function () {
+      let node = this
+      $('#node-input-mode').on('change', function () {
+        updateUI($(this).val())
+      })
+
+      function updateUI(mode) {
+        if (mode === 'execute') {
+          $('#executable-group').show()
+          $('#arguments-group').show()
+        } else {
+          $('#executable-group').hide()
+          $('#arguments-group').hide()
+        }
+      }
+      updateUI(node.mode)
+    },
+  })
+</script>
+
+<script type="text/html" data-template-name="venv-exec">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="venv-exec.name"></label>
+    <input type="text" id="node-input-name" placeholder="Name" />
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-venvconfig"><i class="fa fa-cogs"></i> <span data-i18n="venv-exec.venvName"></label>
+    <select id="node-input-venvconfig"></select>
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-mode"><i class="fa fa-toggle-on"></i> <span data-i18n="venv-exec.mode"></label>
+    <select id="node-input-mode">
+      <option value="list">List Executables</option>
+      <option value="execute">Execute</option>
+    </select>
+  </div>
+
+  <div id="executable-group" class="form-row" style="display: none;">
+    <label for="node-input-executable"
+      ><i class="fa fa-terminal"></i> <span data-i18n="venv-exec.executable"></label
+    >
+    <input type="text" id="node-input-executable" placeholder="pip.exe" />
+  </div>
+
+  <div id="arguments-group" class="form-row" style="display: none;">
+    <label for="node-input-arguments"
+      ><i class="fa fa-plus"></i> <span data-i18n="venv-exec.argument"></label
+    >
+    <input type="text" id="node-input-arguments" placeholder="list" />
+  </div>
+</script>

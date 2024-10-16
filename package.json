@@ -18,7 +18,8 @@
     "nodes": {
       "venv": "node/venv.js",
       "pip": "node/pip.js",
-      "venv-config": "node/venv-config.js"
+      "venv-config": "node/venv-config.js",
+      "venv-exec": "node/venv-exec.js"
     }
   },
   "repository": {

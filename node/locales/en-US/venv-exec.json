@@ -1,0 +1,13 @@
+{
+  "venv-exec": {
+    "name": "Name",
+    "venvName": "Venv",
+    "mode": "Mode",
+    "executable": "Executable",
+    "argument": "Argument",
+    "standby": "Standby",
+    "executing": "Executing",
+    "error": "Error",
+    "notFound": "File not found"
+  }
+}
