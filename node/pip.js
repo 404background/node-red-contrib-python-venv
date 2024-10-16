@@ -53,7 +53,7 @@ module.exports = function (RED) {
           } else {
             args = ['install', ...argument.split(' ')]
           }
-          runningText = "Installing "
+          runningText = 'Installing '
           break
         case 'uninstall':
           if (argument === '') {
@@ -66,12 +66,12 @@ module.exports = function (RED) {
           } else {
             args = ['uninstall', '-y', ...argument.split(' ')]
           }
-          runningText = "Uninstalling "
+          runningText = 'Uninstalling '
           break
         case 'list':
           args = ['list']
           argument = ''
-          runningText = "Listing "
+          runningText = 'Listing '
           break
         default:
           args = []

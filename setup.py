@@ -16,8 +16,7 @@ else:
 if os.path.isdir(venvPath):
     print(f'{venvName} already exists.')
     sys.exit()
-
-print("Creating Python virtual environment...")
+    
 if os.name == 'nt':
     if len(sys.argv) == 3:
         version = sys.argv[2]
