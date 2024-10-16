@@ -39,6 +39,7 @@ module.exports = function (RED) {
           done()
         })
       } else if (config.mode === 'execute') {
+        let argument = ''
         if (
           typeof config.arguments !== 'undefined' &&
           config.arguments !== ''
@@ -46,10 +47,8 @@ module.exports = function (RED) {
           argument = String(config.arguments)
         } else if (typeof msg.payload !== 'undefined' && msg.payload !== '') {
           argument = String(msg.payload)
-        } else {
-          argument = ''
         }
-        const args = argument.split(' ').filter(arg => arg)
+        const args = argument.replace(/'([^']+)'/g, '"$1"')
 
         if (
           typeof config.executable !== 'undefined' &&
@@ -67,12 +66,13 @@ module.exports = function (RED) {
               shape: 'dot',
               text: 'venv-exec.notFound',
             })
-            node.error(`File not found: ${execPath}`)
             if (done) done(err)
             return
           }
 
-          const execute = child_process.spawn(execPath, args)
+          const execute = child_process.spawn(execPath + ' ' + args, {
+            shell: true,
+          })
           let stdoutData = ''
           let stderrData = ''
           node.status({
