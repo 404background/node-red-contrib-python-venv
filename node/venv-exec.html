@@ -37,17 +37,17 @@
 
 <script type="text/html" data-template-name="venv-exec">
   <div class="form-row">
-    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="venv-exec.name"></label>
     <input type="text" id="node-input-name" placeholder="Name" />
   </div>
 
   <div class="form-row">
-    <label for="node-input-venvconfig"><i class="fa fa-cogs"></i> Venv</label>
+    <label for="node-input-venvconfig"><i class="fa fa-cogs"></i> <span data-i18n="venv-exec.venvName"></label>
     <select id="node-input-venvconfig"></select>
   </div>
 
   <div class="form-row">
-    <label for="node-input-mode"><i class="fa fa-toggle-on"></i> Mode</label>
+    <label for="node-input-mode"><i class="fa fa-toggle-on"></i> <span data-i18n="venv-exec.mode"></label>
     <select id="node-input-mode">
       <option value="list">List Executables</option>
       <option value="execute">Execute</option>
@@ -56,14 +56,14 @@
 
   <div id="executable-group" class="form-row" style="display: none;">
     <label for="node-input-executable"
-      ><i class="fa fa-terminal"></i> Executable</label
+      ><i class="fa fa-terminal"></i> <span data-i18n="venv-exec.executable"></label
     >
     <input type="text" id="node-input-executable" placeholder="pip.exe" />
   </div>
 
   <div id="arguments-group" class="form-row" style="display: none;">
     <label for="node-input-arguments"
-      ><i class="fa fa-plus"></i> Argument</label
+      ><i class="fa fa-plus"></i> <span data-i18n="venv-exec.argument"></label
     >
     <input type="text" id="node-input-arguments" placeholder="list" />
   </div>

@@ -24,7 +24,7 @@ module.exports = function (RED) {
     const json = fs.readFileSync(jsonPath)
     const venvExec = JSON.parse(json).NODE_PYENV_EXEC
     let execPath = ''
-    node.status({ fill: 'green', shape: 'dot', text: 'Standby' })
+    node.status({ fill: 'green', shape: 'dot', text: 'venv-exec.standby' })
 
     node.on('input', function (msg, send, done) {
       if (config.mode === 'list') {
@@ -62,7 +62,11 @@ module.exports = function (RED) {
 
         fs.access(execPath, fs.constants.F_OK, err => {
           if (err) {
-            node.status({ fill: 'red', shape: 'dot', text: 'File not found' })
+            node.status({
+              fill: 'red',
+              shape: 'dot',
+              text: 'venv-exec.notFound',
+            })
             node.error(`File not found: ${execPath}`)
             if (done) done(err)
             return
@@ -71,7 +75,11 @@ module.exports = function (RED) {
           const execute = child_process.spawn(execPath, args)
           let stdoutData = ''
           let stderrData = ''
-          node.status({ fill: 'blue', shape: 'dot', text: 'Executing' })
+          node.status({
+            fill: 'blue',
+            shape: 'dot',
+            text: 'venv-exec.executing',
+          })
 
           execute.stdout.on('data', chunk => {
             stdoutData += chunk.toString()
@@ -83,11 +91,19 @@ module.exports = function (RED) {
 
           execute.on('exit', code => {
             if (code !== 0) {
-              node.status({ fill: 'red', shape: 'dot', text: `Error: ${code}` })
+              node.status({
+                fill: 'red',
+                shape: 'dot',
+                text: 'venv-exec.error',
+              })
               node.error(`Error: ${code}. ${stderrData}`)
               msg.payload = stderrData
             } else {
-              node.status({ fill: 'green', shape: 'dot', text: 'Standby' })
+              node.status({
+                fill: 'green',
+                shape: 'dot',
+                text: 'venv-exec.standby',
+              })
               msg.payload = stdoutData
             }
             send(msg)

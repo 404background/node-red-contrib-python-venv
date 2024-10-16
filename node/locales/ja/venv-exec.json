@@ -1,0 +1,13 @@
+{
+  "venv-exec": {
+    "name": "名前",
+    "venvName": "仮想環境",
+    "mode": "モード",
+    "executable": "実行ファイル",
+    "argument": "引数",
+    "standby": "待機",
+    "executing": "実行中",
+    "error": "エラー",
+    "notFound": "ファイルが見つかりません"
+  }
+}
