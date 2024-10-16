@@ -17,6 +17,7 @@ if os.path.isdir(venvPath):
     print(f'{venvName} already exists.')
     sys.exit()
 
+print("Creating Python virtual environment...")
 if os.name == 'nt':
     if len(sys.argv) == 3:
         version = sys.argv[2]
@@ -26,14 +27,16 @@ if os.name == 'nt':
     subprocess.run([f'{venvPath}/Scripts/python.exe', '-m', 'pip', 'install', '--upgrade', 'pip'])
     path = {
         'NODE_PYENV_PYTHON': f'{venvPath}/Scripts/python.exe',
-        'NODE_PYENV_PIP': f'{venvPath}/Scripts/pip.exe'
+        'NODE_PYENV_PIP': f'{venvPath}/Scripts/pip.exe',
+        'NODE_PYENV_EXEC': f'{venvPath}/Scripts/'
     }
 else:
     subprocess.run(['python', '-m', 'venv', venvPath])
     subprocess.run([f'{venvPath}/bin/python', '-m', 'pip', 'install', '--upgrade', 'pip'])
     path = {
         'NODE_PYENV_PYTHON': f'{venvPath}/bin/python',
-        'NODE_PYENV_PIP': f'{venvPath}/bin/pip'
+        'NODE_PYENV_PIP': f'{venvPath}/bin/pip',
+        'NODE_PYENV_EXEC': f'{venvPath}/bin/'
     }
 
 with open(f'{venvPath}/path.json', 'w') as f:
