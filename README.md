@@ -58,6 +58,18 @@ Please compare.
 
 ![pip-list.jpg](./img/pip-list.jpg)
 
+### venv-exec
+
+This node can execute executable files in Scripts or bin folder.
+
+![venv-exec.jpg](./img/venv-exec.jpg)
+
+You can see the name of the executable in List Executables mode.  
+Then you can execute it with arguments in Execute mode.
+
+![venv-exec-list.jpg](./img/venv-exec-list.jpg)
+![venv-exec-execute.jpg](./img/venv-exec-execute.jpg)
+
 ### venv-config (config node)
 
 You can create and switch between multiple Python virtual environments.  
