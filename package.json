@@ -1,6 +1,6 @@
 {
   "name": "@background404/node-red-contrib-python-venv",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Node for python virtual environment",
   "main": "node/venv.js",
   "scripts": {
