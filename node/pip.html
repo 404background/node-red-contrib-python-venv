@@ -15,6 +15,22 @@
     label: function () {
       return this.name || 'pip'
     },
+    oneditprepare: function () {
+      this.editor = RED.editor.createEditor({
+        id: 'node-input-arg',
+        mode: 'ace/mode/text',
+        value: this.requirements,
+      })
+    },
+    oneditsave: function () {
+      this.requirements = this.editor.getValue()
+      this.editor.destroy()
+      delete this.editor
+    },
+    oneditcancel: function () {
+      this.editor.destroy()
+      delete this.editor
+    },
   })
 </script>
 
@@ -40,7 +56,7 @@
 
   <div class="form-row">
     <label for="node-input-arg"><i class="fa fa-plus"></i> <span data-i18n="pip.argument"></label>
-    <input type="text" id="node-input-arg" placeholder="argument" />
+    <div style="height: 250px; min-height:150px;" class="node-text-editor" id="node-input-arg"></div>
   </div>
 
   <div class="form-row">
