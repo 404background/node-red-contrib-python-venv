@@ -56,7 +56,7 @@ module.exports = function (RED) {
       } else {
         code = msg.code ?? ''
       }
-      fs.writeFileSync(filePath, code)
+      fs.writeFileSync(filePath, code, { encoding: 'utf-8' })
 
       const message = Buffer.from(JSON.stringify(msg)).toString('base64')
       const args = [
@@ -85,13 +85,12 @@ module.exports = function (RED) {
         })
       }
 
-      pythonProcess = child_process.spawn(pythonPath, args)
-
+      const env = { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }
+      pythonProcess = child_process.spawn(pythonPath, args, { env })
       pythonProcess.on('message', console.log)
 
       pythonProcess.stdout.on('data', chunk => {
-        stdoutData += chunk.toString()
-
+        stdoutData += chunk.toString('utf8')
         // In continuous mode, send the output line by line
         if (continuous && stdoutData.endsWith('\n')) {
           msg.payload = stdoutData
@@ -101,7 +100,7 @@ module.exports = function (RED) {
       })
 
       pythonProcess.stderr.on('data', chunk => {
-        const err = chunk.toString()
+        const err = chunk.toString('utf8')
         stderrData += err
         rollingStderrData += err
         // In continuous mode, send errors line by line
