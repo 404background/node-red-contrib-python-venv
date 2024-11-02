@@ -85,9 +85,9 @@ module.exports = function (RED) {
         })
       }
 
-      pythonProcess.on('message', console.log)
       const env = { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }
       pythonProcess = child_process.spawn(pythonPath, args, { env })
+      pythonProcess.on('message', console.log)
 
       pythonProcess.stdout.on('data', chunk => {
         stdoutData += chunk.toString('utf8')
