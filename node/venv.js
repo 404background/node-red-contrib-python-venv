@@ -58,7 +58,22 @@ module.exports = function (RED) {
       }
       fs.writeFileSync(filePath, code, { encoding: 'utf-8' })
 
-      const message = Buffer.from(JSON.stringify(msg)).toString('base64')
+      // Handle circular references in msg object
+      const removeCircularReferences = (obj) => {
+        const seen = new WeakSet()
+        return JSON.stringify(obj, (key, value) => {
+          if (typeof value === 'object' && value !== null) {
+            if (seen.has(value)) {
+              return // Skip circular references
+            }
+            seen.add(value)
+          }
+          return value
+        })
+      }
+
+      const message = Buffer.from(removeCircularReferences(msg)).toString('base64')
+
       const args = [
         '-c',
         `import base64;import json;msg=json.loads(base64.b64decode(r'${message}').decode('utf-8'));exec(open(r'${filePath}', encoding='utf-8').read())`,
