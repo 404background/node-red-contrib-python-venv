@@ -40,6 +40,8 @@ module.exports = function (RED) {
     node.standby = true
     node.on('input', function (msg, send, done) {
       node.standby = false
+      const flowContext = node.context().flow
+      const globalContext = node.context().global
 
       // Checks if the continuous flag is set and if so then kill the process and set it to undefined.
       // If terminate is set to true return without starting a new continuous process.
@@ -73,10 +75,29 @@ module.exports = function (RED) {
       }
 
       const message = Buffer.from(removeCircularReferences(msg)).toString('base64')
+      const flowMessage = Buffer.from(JSON.stringify(
+        flowContext.keys().reduce((obj, key) => {
+          obj[key] = flowContext.get(key)
+          return obj
+        }, {})
+      )).toString('base64')
+      
+      const globalMessage = Buffer.from(JSON.stringify(
+        globalContext.keys().reduce((obj, key) => {
+          obj[key] = globalContext.get(key)
+          return obj
+        }, {})
+      )).toString('base64')
 
       const args = [
         '-c',
-        `import base64;import json;msg=json.loads(base64.b64decode(r'${message}').decode('utf-8'));exec(open(r'${filePath}', encoding='utf-8').read())`,
+        `import base64; \
+        import json; \
+        node = { 'flow': '', 'global': ''}; \
+        msg=json.loads(base64.b64decode(r'${message}').decode('utf-8')); \
+        node['flow']=json.loads(base64.b64decode(r'${flowMessage}').decode('utf-8')); \
+        node['global']=json.loads(base64.b64decode(r'${globalMessage}').decode('utf-8')); \
+        exec(open(r'${filePath}', encoding='utf-8').read())`,
       ]
 
       let stdoutData = ''
