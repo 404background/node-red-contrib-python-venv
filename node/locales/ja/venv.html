@@ -1,7 +1,7 @@
 <script type="text/html" data-help-name="venv">
   <p>ノード内のPythonのコードを実行することができます。</p>
   <p>
-    Node-REDの他のノードからのメッセージは、<code>print(msg['payload'])</code>のように取得できます。
+    Node-REDの他のノードからのメッセージは、<code>print(msg['payload'])</code>、<code>print(node['flow']['payload'])</code>、<code>print(node['global']['payload'])</code>のように取得できます。
   </p>
   <h3>連続実行</h3>
   <h4>連続実行が有効でない場合：</h4>

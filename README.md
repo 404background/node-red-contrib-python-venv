@@ -29,11 +29,11 @@ The program is saved in the virtual environment and executed.
 
 You can access Node-RED messages like `print(msg['payload'])`.
 
-![msg-property-flow.png](./img/msg-property-flow.png)
-
 ![msg-property.png](./img/msg-property.png)
 
-![msg-property-inject.png](./img/msg-property-inject.png)
+You can also access flow and global objects like `print(node['flow']['payload'])`, `print(node['global']['payload'])`.
+
+![msg-property-flow-global.png](./img/msg-property-flow-global.png)
 
 The number of running nodes is displayed in the status.
 
