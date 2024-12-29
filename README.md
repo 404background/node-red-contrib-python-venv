@@ -5,6 +5,9 @@ Node to use Python virtual environment in Node-RED
 [![GitHub Sponsor](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=ff69b4)](https://github.com/sponsors/404background)
 [![npm version](https://img.shields.io/npm/v/@background404/node-red-contrib-python-venv?style=flat-square)](https://www.npmjs.com/package/@background404/node-red-contrib-python-venv)
 [![npm downloads](https://img.shields.io/npm/dm/@background404/node-red-contrib-python-venv?style=flat-square)](https://www.npmjs.com/package/@background404/node-red-contrib-python-venv)
+[![GitHub Discussions](https://img.shields.io/github/discussions/404background/node-red-contrib-python-venv?color=blue&label=Discussions&logo=github)](https://github.com/404background/node-red-contrib-python-venv/discussions)
+
+If you would like to find a sample flow or have questions, please visit [GitHub Discussions](https://github.com/404background/node-red-contrib-python-venv/discussions) page!
 
 ## Overview
 
