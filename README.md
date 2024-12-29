@@ -1,22 +1,17 @@
 # node-red-contrib-python-venv
 
-Node for python virtual environment
+Node to use Python virtual environment in Node-RED
+
+[![GitHub Sponsor](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=ff69b4)](https://github.com/sponsors/404background)
+[![npm version](https://img.shields.io/npm/v/@background404/node-red-contrib-python-venv?style=flat-square)](https://www.npmjs.com/package/@background404/node-red-contrib-python-venv)
+[![npm downloads](https://img.shields.io/npm/dm/@background404/node-red-contrib-python-venv?style=flat-square)](https://www.npmjs.com/package/@background404/node-red-contrib-python-venv)
 
 ## Overview
 
-With this node, you can run Python programs.
+With this node, you can run Python in Python's virtual environments in Node-RED.
 
 When you install this node, python virtual environment (pyenv folder) is also created.  
 You can run python(.exe) or pip(.exe) in that environment.
-
-## Test Case
-
-Windows 10
-
-- Node.js: v20.10.0
-- npm: 9.1.3
-- Python: 3.8.3
-- pip: 24.0
 
 Sample flows are in the examples folder.  
 ![sample-flow.png](./img/sample-flow.png)
@@ -90,11 +85,11 @@ The nodes can be executed by creating virtual environments even if the venv Name
 I refer to "Creating Nodes" page of Node-RED.  
 <https://nodered.org/docs/creating-nodes/>
 
-My article about python-venv (version 0.0.2)  
-In Japanese: Node-REDのノードを作成してみる　その１（python-venv）  
-<https://404background.com/program/node-create-python-venv/>  
-In English: Creating Nodes for Node-RED Part 1 (python-venv)  
+My article: Creating Nodes for Node-RED Part 1 (python-venv)  
 <https://404background.com/en/programming/creating-nodes-1/>
+
+My article: python-venv node development history (2024)  
+<https://qiita.com/background/items/3244fc1b70cc454befef>  
 
 ### Nodes created based on this node
 
