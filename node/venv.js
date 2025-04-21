@@ -12,6 +12,7 @@ module.exports = function (RED) {
     const fs = require('fs')
     const path = require('path')
     const child_process = require('child_process')
+    const os = require('os')
 
     node.status({ fill: 'green', shape: 'dot', text: 'venv.standby' })
     const runningText = 'Running: '
@@ -60,45 +61,45 @@ module.exports = function (RED) {
       }
       fs.writeFileSync(filePath, code, { encoding: 'utf-8' })
 
-      // Handle circular references in msg object
-      const removeCircularReferences = (obj) => {
-        const seen = new WeakSet()
-        return JSON.stringify(obj, (key, value) => {
-          if (typeof value === 'object' && value !== null) {
-            if (seen.has(value)) {
-              return // Skip circular references
-            }
-            seen.add(value)
-          }
-          return value
-        })
+      const tempDir = os.tmpdir();
+      const tempMsgPath = path.join(tempDir, `${node.id}_msg.json`);
+      const tempFlowPath = path.join(tempDir, `${node.id}_flow.json`);
+      const tempGlobalPath = path.join(tempDir, `${node.id}_global.json`);
+
+      const args = ['-c'];
+      let pythonScript = `exec(open(r'${filePath}', encoding='utf-8').read())`;
+
+      if (code.includes("node['flow']")) {
+          const flowData = flowContext.keys().reduce((obj, key) => {
+              obj[key] = flowContext.get(key);
+              return obj;
+          }, {});
+          fs.writeFileSync(tempFlowPath, JSON.stringify(flowData), { encoding: 'utf-8' });
+          pythonScript = `import json; node = {'flow': {}, 'global': {}}; ` +
+                         `with open(r'${tempFlowPath}', 'r', encoding='utf-8') as flow_file: ` +
+                         `node['flow'] = json.load(flow_file); ` + pythonScript;
       }
 
-      const message = Buffer.from(removeCircularReferences(msg)).toString('base64')
-      const flowMessage = Buffer.from(JSON.stringify(
-        flowContext.keys().reduce((obj, key) => {
-          obj[key] = flowContext.get(key)
-          return obj
-        }, {})
-      )).toString('base64')
-      
-      const globalMessage = Buffer.from(JSON.stringify(
-        globalContext.keys().reduce((obj, key) => {
-          obj[key] = globalContext.get(key)
-          return obj
-        }, {})
-      )).toString('base64')
+      if (code.includes("node['global']")) {
+          const globalData = globalContext.keys().reduce((obj, key) => {
+              obj[key] = globalContext.get(key);
+              return obj;
+          }, {});
+          fs.writeFileSync(tempGlobalPath, JSON.stringify(globalData), { encoding: 'utf-8' });
+          pythonScript = `import json; ` +
+                         `with open(r'${tempGlobalPath}', 'r', encoding='utf-8') as global_file: ` +
+                         `node['global'] = json.load(global_file); ` + pythonScript;
+      }
 
-      const args = [
-        '-c',
-        `import base64; \
-        import json; \
-        node = { 'flow': '', 'global': ''}; \
-        msg=json.loads(base64.b64decode(r'${message}').decode('utf-8')); \
-        node['flow']=json.loads(base64.b64decode(r'${flowMessage}').decode('utf-8')); \
-        node['global']=json.loads(base64.b64decode(r'${globalMessage}').decode('utf-8')); \
-        exec(open(r'${filePath}', encoding='utf-8').read())`,
-      ]
+      if (code.includes("msg")) {
+          fs.writeFileSync(tempMsgPath, JSON.stringify(msg), { encoding: 'utf-8' });
+          pythonScript = `import json; ` +
+                         `msg = {}; ` +
+                         `with open(r'${tempMsgPath}', 'r', encoding='utf-8') as msg_file: ` +
+                         `msg = json.load(msg_file); ` + pythonScript;
+      }
+
+      args.push(pythonScript);
 
       let stdoutData = ''
       let stderrData = ''
