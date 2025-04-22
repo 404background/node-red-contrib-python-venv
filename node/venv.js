@@ -43,6 +43,20 @@ module.exports = function (RED) {
       const flowContext = node.context().flow
       const globalContext = node.context().global
 
+      // Handle circular references in msg object
+      const removeCircularReferences = (obj) => {
+        const seen = new WeakSet()
+        return JSON.stringify(obj, (key, value) => {
+          if (typeof value === 'object' && value !== null) {
+            if (seen.has(value)) {
+              return // Skip circular references
+            }
+            seen.add(value)
+          }
+          return value
+        })
+      }
+
       // Checks if the continuous flag is set and if so then kill the process and set it to undefined.
       // If terminate is set to true return without starting a new continuous process.
       if (continuous) {
@@ -60,45 +74,52 @@ module.exports = function (RED) {
       }
       fs.writeFileSync(filePath, code, { encoding: 'utf-8' })
 
-      // Handle circular references in msg object
-      const removeCircularReferences = (obj) => {
-        const seen = new WeakSet()
-        return JSON.stringify(obj, (key, value) => {
-          if (typeof value === 'object' && value !== null) {
-            if (seen.has(value)) {
-              return // Skip circular references
-            }
-            seen.add(value)
-          }
-          return value
-        })
+      const args = ['-c'];
+      const tempDir = path.join(path.dirname(__dirname), this.venvconfig.venvname, 'Temp');
+      if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
       }
 
-      const message = Buffer.from(removeCircularReferences(msg)).toString('base64')
-      const flowMessage = Buffer.from(JSON.stringify(
-        flowContext.keys().reduce((obj, key) => {
-          obj[key] = flowContext.get(key)
-          return obj
-        }, {})
-      )).toString('base64')
-      
-      const globalMessage = Buffer.from(JSON.stringify(
-        globalContext.keys().reduce((obj, key) => {
-          obj[key] = globalContext.get(key)
-          return obj
-        }, {})
-      )).toString('base64')
+      const tempMsgPath = path.join(tempDir, `${node.id}_msg.json`);
+      fs.writeFileSync(tempMsgPath, removeCircularReferences(msg), { encoding: 'utf-8' });
 
-      const args = [
-        '-c',
-        `import base64; \
-        import json; \
-        node = { 'flow': '', 'global': ''}; \
-        msg=json.loads(base64.b64decode(r'${message}').decode('utf-8')); \
-        node['flow']=json.loads(base64.b64decode(r'${flowMessage}').decode('utf-8')); \
-        node['global']=json.loads(base64.b64decode(r'${globalMessage}').decode('utf-8')); \
-        exec(open(r'${filePath}', encoding='utf-8').read())`,
-      ]
+      const flowRegex = /node\[['"]flow['"]\]/;
+      const globalRegex = /node\[['"]global['"]\]/;
+
+      let pythonScript = `import json\n` +
+                         `with open(r'${tempMsgPath}', 'r', encoding='utf-8') as msg_file:\n` +
+                         `    msg = json.load(msg_file)\n` +
+                         `node = {'flow': {}, 'global': {}}\n`;
+
+      const tempFlowPath = path.join(tempDir, `${node.id}_flow.json`);
+      const tempGlobalPath = path.join(tempDir, `${node.id}_global.json`);
+
+      if (flowRegex.test(code)) {
+          const flowData = flowContext.keys().reduce((obj, key) => {
+              obj[key] = flowContext.get(key);
+              return obj;
+          }, {});
+          if (Object.keys(flowData).length > 0) {
+              fs.writeFileSync(tempFlowPath, JSON.stringify(flowData), { encoding: 'utf-8' });
+              pythonScript += `with open(r'${tempFlowPath}', 'r', encoding='utf-8') as flow_file:\n` +
+                              `    node['flow'] = json.load(flow_file)\n`;
+          }
+      }
+
+      if (globalRegex.test(code)) {
+          const globalData = globalContext.keys().reduce((obj, key) => {
+              obj[key] = globalContext.get(key);
+              return obj;
+          }, {});
+          if (Object.keys(globalData).length > 0) {
+              fs.writeFileSync(tempGlobalPath, JSON.stringify(globalData), { encoding: 'utf-8' });
+              pythonScript += `with open(r'${tempGlobalPath}', 'r', encoding='utf-8') as global_file:\n` +
+                              `    node['global'] = json.load(global_file)\n`;
+          }
+      }
+
+      pythonScript += `exec(open(r'${filePath}', encoding='utf-8').read())`;
+      args.push(pythonScript);
 
       let stdoutData = ''
       let stderrData = ''
