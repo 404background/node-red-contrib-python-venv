@@ -43,6 +43,20 @@ module.exports = function (RED) {
       const flowContext = node.context().flow
       const globalContext = node.context().global
 
+      // Handle circular references in msg object
+      const removeCircularReferences = (obj) => {
+        const seen = new WeakSet()
+        return JSON.stringify(obj, (key, value) => {
+          if (typeof value === 'object' && value !== null) {
+            if (seen.has(value)) {
+              return // Skip circular references
+            }
+            seen.add(value)
+          }
+          return value
+        })
+      }
+
       // Checks if the continuous flag is set and if so then kill the process and set it to undefined.
       // If terminate is set to true return without starting a new continuous process.
       if (continuous) {
@@ -67,7 +81,7 @@ module.exports = function (RED) {
       }
 
       const tempMsgPath = path.join(tempDir, `${node.id}_msg.json`);
-      fs.writeFileSync(tempMsgPath, JSON.stringify(msg), { encoding: 'utf-8' });
+      fs.writeFileSync(tempMsgPath, removeCircularReferences(msg), { encoding: 'utf-8' });
 
       const flowRegex = /node\[['"]flow['"]\]/;
       const globalRegex = /node\[['"]global['"]\]/;
