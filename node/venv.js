@@ -61,44 +61,51 @@ module.exports = function (RED) {
       }
       fs.writeFileSync(filePath, code, { encoding: 'utf-8' })
 
-      const tempDir = os.tmpdir();
+      const args = ['-c'];
+      const tempDir = path.join(path.dirname(__dirname), this.venvconfig.venvname, 'Temp');
+      if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+      }
+
       const tempMsgPath = path.join(tempDir, `${node.id}_msg.json`);
+      fs.writeFileSync(tempMsgPath, JSON.stringify(msg), { encoding: 'utf-8' });
+
+      const flowRegex = /node\[['"]flow['"]\]/;
+      const globalRegex = /node\[['"]global['"]\]/;
+
+      let pythonScript = `import json\n` +
+                         `with open(r'${tempMsgPath}', 'r', encoding='utf-8') as msg_file:\n` +
+                         `    msg = json.load(msg_file)\n` +
+                         `node = {'flow': {}, 'global': {}}\n`;
+
       const tempFlowPath = path.join(tempDir, `${node.id}_flow.json`);
       const tempGlobalPath = path.join(tempDir, `${node.id}_global.json`);
 
-      const args = ['-c'];
-      let pythonScript = `exec(open(r'${filePath}', encoding='utf-8').read())`;
-
-      if (code.includes("node['flow']")) {
+      if (flowRegex.test(code)) {
           const flowData = flowContext.keys().reduce((obj, key) => {
               obj[key] = flowContext.get(key);
               return obj;
           }, {});
-          fs.writeFileSync(tempFlowPath, JSON.stringify(flowData), { encoding: 'utf-8' });
-          pythonScript = `import json; node = {'flow': {}, 'global': {}}; ` +
-                         `with open(r'${tempFlowPath}', 'r', encoding='utf-8') as flow_file: ` +
-                         `node['flow'] = json.load(flow_file); ` + pythonScript;
+          if (Object.keys(flowData).length > 0) {
+              fs.writeFileSync(tempFlowPath, JSON.stringify(flowData), { encoding: 'utf-8' });
+              pythonScript += `with open(r'${tempFlowPath}', 'r', encoding='utf-8') as flow_file:\n` +
+                              `    node['flow'] = json.load(flow_file)\n`;
+          }
       }
 
-      if (code.includes("node['global']")) {
+      if (globalRegex.test(code)) {
           const globalData = globalContext.keys().reduce((obj, key) => {
               obj[key] = globalContext.get(key);
               return obj;
           }, {});
-          fs.writeFileSync(tempGlobalPath, JSON.stringify(globalData), { encoding: 'utf-8' });
-          pythonScript = `import json; ` +
-                         `with open(r'${tempGlobalPath}', 'r', encoding='utf-8') as global_file: ` +
-                         `node['global'] = json.load(global_file); ` + pythonScript;
+          if (Object.keys(globalData).length > 0) {
+              fs.writeFileSync(tempGlobalPath, JSON.stringify(globalData), { encoding: 'utf-8' });
+              pythonScript += `with open(r'${tempGlobalPath}', 'r', encoding='utf-8') as global_file:\n` +
+                              `    node['global'] = json.load(global_file)\n`;
+          }
       }
 
-      if (code.includes("msg")) {
-          fs.writeFileSync(tempMsgPath, JSON.stringify(msg), { encoding: 'utf-8' });
-          pythonScript = `import json; ` +
-                         `msg = {}; ` +
-                         `with open(r'${tempMsgPath}', 'r', encoding='utf-8') as msg_file: ` +
-                         `msg = json.load(msg_file); ` + pythonScript;
-      }
-
+      pythonScript += `exec(open(r'${filePath}', encoding='utf-8').read())`;
       args.push(pythonScript);
 
       let stdoutData = ''
