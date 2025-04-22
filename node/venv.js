@@ -12,7 +12,6 @@ module.exports = function (RED) {
     const fs = require('fs')
     const path = require('path')
     const child_process = require('child_process')
-    const os = require('os')
 
     node.status({ fill: 'green', shape: 'dot', text: 'venv.standby' })
     const runningText = 'Running: '
