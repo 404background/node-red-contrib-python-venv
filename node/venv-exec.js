@@ -27,14 +27,18 @@ module.exports = function (RED) {
     let pythonProcess = null // Track the Python process
     node.status({ fill: 'green', shape: 'dot', text: 'venv-exec.standby' })
 
+    const runningText = 'venv-exec.running: '
+
     node.on('input', function (msg, send, done) {
+      let terminated = false
       if (msg.terminate === true || msg.kill === true) {
         if (pythonProcess) {
-          pythonProcess.kill() // Terminate the Python process
+          pythonProcess.kill()
+          terminated = true
           node.status({
             fill: 'yellow',
             shape: 'dot',
-            text: 'venv-exec.terminated',
+            text: 'venv-exec.terminate-continuous'
           })
         }
         done()
@@ -92,7 +96,7 @@ module.exports = function (RED) {
           node.status({
             fill: 'blue',
             shape: 'dot',
-            text: 'venv-exec.executing',
+            text: 'venv-exec.running-continuous'
           })
 
           pythonProcess.stdout.on('data', chunk => {
@@ -105,6 +109,15 @@ module.exports = function (RED) {
 
           pythonProcess.on('exit', code => {
             pythonProcess = null // Clear the reference
+            if (terminated || code === null) {
+              node.status({
+                fill: 'yellow',
+                shape: 'dot',
+                text: 'venv-exec.terminate-continuous'
+              })
+              done()
+              return
+            }
             if (code !== 0) {
               node.status({
                 fill: 'red',
@@ -125,6 +138,20 @@ module.exports = function (RED) {
             done()
           })
         })
+      } else if (!continuous) {
+        runningScripts++
+        node.status({
+          fill: 'blue',
+          shape: 'dot',
+          text: runningText + runningScripts,
+        })
+      } else if (pythonProcess.killed) {
+        node.status({
+          fill: 'yellow',
+          shape: 'dot',
+          text: 'venv-exec.terminate-continuous'
+        })
+        node.standby = true
       }
     })
   }

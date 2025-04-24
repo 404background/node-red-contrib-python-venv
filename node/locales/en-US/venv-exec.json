@@ -6,6 +6,8 @@
     "executable": "Executable",
     "argument": "Argument",
     "standby": "Standby",
+    "running-continuous": "Running Continuous",
+    "terminate-continuous": "Terminated",
     "executing": "Executing",
     "error": "Error",
     "notFound": "File not found"

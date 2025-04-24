@@ -6,6 +6,8 @@
     "executable": "実行ファイル",
     "argument": "引数",
     "standby": "待機",
+    "running-continuous": "連続実行中",
+    "terminate-continuous": "連続実行終了",
     "executing": "実行中",
     "error": "エラー",
     "notFound": "ファイルが見つかりません"
