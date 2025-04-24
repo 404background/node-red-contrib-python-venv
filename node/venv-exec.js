@@ -27,6 +27,11 @@ module.exports = function (RED) {
     node.status({ fill: 'green', shape: 'dot', text: 'venv-exec.standby' })
 
     node.on('input', function (msg, send, done) {
+      if (msg.terminate === true || msg.kill === true) {
+        pythonProcess?.kill()
+        return
+      }
+
       if (config.mode === 'list') {
         fs.readdir(venvExec, (err, files) => {
           if (err) {
