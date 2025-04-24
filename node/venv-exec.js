@@ -24,11 +24,20 @@ module.exports = function (RED) {
     const json = fs.readFileSync(jsonPath)
     const venvExec = JSON.parse(json).NODE_PYENV_EXEC
     let execPath = ''
+    let pythonProcess = null // Track the Python process
     node.status({ fill: 'green', shape: 'dot', text: 'venv-exec.standby' })
 
     node.on('input', function (msg, send, done) {
       if (msg.terminate === true || msg.kill === true) {
-        pythonProcess?.kill()
+        if (pythonProcess) {
+          pythonProcess.kill() // Terminate the Python process
+          node.status({
+            fill: 'yellow',
+            shape: 'dot',
+            text: 'venv-exec.terminated',
+          })
+        }
+        done()
         return
       }
 
@@ -75,7 +84,7 @@ module.exports = function (RED) {
             return
           }
 
-          const execute = child_process.spawn(execPath + ' ' + args, {
+          pythonProcess = child_process.spawn(execPath + ' ' + args, {
             shell: true,
           })
           let stdoutData = ''
@@ -86,15 +95,16 @@ module.exports = function (RED) {
             text: 'venv-exec.executing',
           })
 
-          execute.stdout.on('data', chunk => {
+          pythonProcess.stdout.on('data', chunk => {
             stdoutData += chunk.toString()
           })
 
-          execute.stderr.on('data', chunk => {
+          pythonProcess.stderr.on('data', chunk => {
             stderrData += chunk.toString()
           })
 
-          execute.on('exit', code => {
+          pythonProcess.on('exit', code => {
+            pythonProcess = null // Clear the reference
             if (code !== 0) {
               node.status({
                 fill: 'red',
