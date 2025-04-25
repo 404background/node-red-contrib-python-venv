@@ -27,8 +27,6 @@ module.exports = function (RED) {
     let pythonProcess = null // Track the Python process
     node.status({ fill: 'green', shape: 'dot', text: 'venv-exec.standby' })
 
-    const runningText = 'venv-exec.running: '
-
     node.on('input', function (msg, send, done) {
       let terminated = false
       if (msg.terminate === true || msg.kill === true) {
@@ -138,20 +136,6 @@ module.exports = function (RED) {
             done()
           })
         })
-      } else if (!continuous) {
-        runningScripts++
-        node.status({
-          fill: 'blue',
-          shape: 'dot',
-          text: runningText + runningScripts,
-        })
-      } else if (pythonProcess.killed) {
-        node.status({
-          fill: 'yellow',
-          shape: 'dot',
-          text: 'venv-exec.terminate-continuous'
-        })
-        node.standby = true
       }
     })
   }
