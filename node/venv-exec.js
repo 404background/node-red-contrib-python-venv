@@ -24,7 +24,7 @@ module.exports = function (RED) {
     const json = fs.readFileSync(jsonPath)
     const venvExec = JSON.parse(json).NODE_PYENV_EXEC
     let execPath = ''
-    let pythonProcess = null // Track the Python process
+    let pythonProcess = null
     node.status({ fill: 'green', shape: 'dot', text: 'venv-exec.standby' })
 
     node.on('input', function (msg, send, done) {
@@ -33,11 +33,6 @@ module.exports = function (RED) {
         if (pythonProcess) {
           pythonProcess.kill()
           terminated = true
-          node.status({
-            fill: 'yellow',
-            shape: 'dot',
-            text: 'venv-exec.terminate-continuous'
-          })
         }
         done()
         return
@@ -105,9 +100,9 @@ module.exports = function (RED) {
             stderrData += chunk.toString()
           })
 
-          pythonProcess.on('exit', code => {
+          pythonProcess.on('exit', (code, signal) => {
             pythonProcess = null // Clear the reference
-            if (terminated || code === null) {
+            if (terminated) {
               node.status({
                 fill: 'yellow',
                 shape: 'dot',
@@ -116,7 +111,7 @@ module.exports = function (RED) {
               done()
               return
             }
-            if (code !== 0) {
+            if (signal === null && code !== 0) {
               node.status({
                 fill: 'red',
                 shape: 'dot',
@@ -124,7 +119,7 @@ module.exports = function (RED) {
               })
               node.error(`Error: ${code}. ${stderrData}`)
               msg.payload = stderrData
-            } else {
+            } else if (code === 0) {
               node.status({
                 fill: 'green',
                 shape: 'dot',
