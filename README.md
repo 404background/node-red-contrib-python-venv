@@ -42,6 +42,8 @@ The number of running nodes is displayed in the status.
 
 ![running-status.png](./img/running-status.png)
 
+The venv node stops execution when `msg.kill` or `msg.terminate` is set to `true`, aligning its behavior with Node-RED's `exec` node.
+
 ### pip node
 
 pip(.exe) is in the ./pyenv/Scripts/pip.exe or Python virtual environment you have added.
@@ -67,6 +69,8 @@ Then you can execute it with arguments in Execute mode.
 
 ![venv-exec-list.jpg](./img/venv-exec-list.jpg)
 ![venv-exec-execute.jpg](./img/venv-exec-execute.jpg)
+
+The venv-exec node stops execution when either `msg.kill` or `msg.terminate` is set to `true`, aligning its behavior with Node-RED's `exec` node.
 
 ### venv-config (config node)
 

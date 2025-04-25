@@ -24,9 +24,20 @@ module.exports = function (RED) {
     const json = fs.readFileSync(jsonPath)
     const venvExec = JSON.parse(json).NODE_PYENV_EXEC
     let execPath = ''
+    let pythonProcess = null
     node.status({ fill: 'green', shape: 'dot', text: 'venv-exec.standby' })
 
     node.on('input', function (msg, send, done) {
+      let terminated = false
+      if (msg.terminate === true || msg.kill === true) {
+        if (pythonProcess) {
+          pythonProcess.kill()
+          terminated = true
+        }
+        done()
+        return
+      }
+
       if (config.mode === 'list') {
         fs.readdir(venvExec, (err, files) => {
           if (err) {
@@ -70,7 +81,7 @@ module.exports = function (RED) {
             return
           }
 
-          const execute = child_process.spawn(execPath + ' ' + args, {
+          pythonProcess = child_process.spawn(execPath + ' ' + args, {
             shell: true,
           })
           let stdoutData = ''
@@ -78,19 +89,29 @@ module.exports = function (RED) {
           node.status({
             fill: 'blue',
             shape: 'dot',
-            text: 'venv-exec.executing',
+            text: 'venv-exec.running-continuous'
           })
 
-          execute.stdout.on('data', chunk => {
+          pythonProcess.stdout.on('data', chunk => {
             stdoutData += chunk.toString()
           })
 
-          execute.stderr.on('data', chunk => {
+          pythonProcess.stderr.on('data', chunk => {
             stderrData += chunk.toString()
           })
 
-          execute.on('exit', code => {
-            if (code !== 0) {
+          pythonProcess.on('exit', (code, signal) => {
+            pythonProcess = null // Clear the reference
+            if (terminated) {
+              node.status({
+                fill: 'yellow',
+                shape: 'dot',
+                text: 'venv-exec.terminate-continuous'
+              })
+              done()
+              return
+            }
+            if (signal === null && code !== 0) {
               node.status({
                 fill: 'red',
                 shape: 'dot',
@@ -98,7 +119,7 @@ module.exports = function (RED) {
               })
               node.error(`Error: ${code}. ${stderrData}`)
               msg.payload = stderrData
-            } else {
+            } else if (code === 0) {
               node.status({
                 fill: 'green',
                 shape: 'dot',

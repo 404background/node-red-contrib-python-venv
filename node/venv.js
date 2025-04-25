@@ -59,11 +59,9 @@ module.exports = function (RED) {
 
       // Checks if the continuous flag is set and if so then kill the process and set it to undefined.
       // If terminate is set to true return without starting a new continuous process.
-      if (continuous) {
-        pythonProcess?.kill()
-        if (msg.terminate === true) {
-          return
-        }
+      if (continuous && (msg.terminate === true || msg.kill === true)) {
+        pythonProcess?.kill();
+        return;
       }
 
       let code = ''
