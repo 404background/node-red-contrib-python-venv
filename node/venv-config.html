@@ -9,6 +9,28 @@
       const version = this.version || 'default'
       return this.venvname + ':' + version
     },
+    oneditprepare: function() {
+      const venvname = $('#node-config-input-venvname').val();
+      
+      $.getJSON('venvconfig/path', { venvname: venvname })
+        .done(function(data) {
+          $('#venv-config-path').text(data.path);
+        })
+        .fail(function() {
+          $('#venv-config-path').text('Path information not available');
+        });
+
+      $('#node-config-input-venvname').on('change', function() {
+        const newVenvname = $(this).val();
+        $.getJSON('venvconfig/path', { venvname: newVenvname })
+          .done(function(data) {
+            $('#venv-config-path').text(data.path);
+          })
+          .fail(function() {
+            $('#venv-config-path').text('Path information not available');
+          });
+      });
+    }
   })
 </script>
 
@@ -25,6 +47,11 @@
       ><i class="fa fa-gear"></i> <span data-i18n="venv-config.version"></label
     >
     <input type="text" id="node-config-input-version" />
+  </div>
+
+  <div class="form-row">
+    <label><i class="fa fa-location-arrow"></i> <span data-i18n="venv-config.path"></span></label>
+    <span id="venv-config-path" style="padding-left: 5px; color: #666; font-style: italic;"></span>
   </div>
 
   <div class="form-tips">

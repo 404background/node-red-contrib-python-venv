@@ -27,5 +27,20 @@ module.exports = function (RED) {
       done()
     })
   }
+  
+  RED.httpAdmin.get('/venvconfig/path', RED.auth.needsPermission('venvconfig.read'), function(req, res) {
+    const path = require('path');
+    const venvname = req.query.venvname;
+    
+    let absolutePath;
+    if (path.isAbsolute(venvname)) {
+      absolutePath = venvname;
+    } else {
+      absolutePath = path.resolve(path.join(path.dirname(path.dirname(__dirname)), venvname));
+    }
+    
+    res.json({ path: absolutePath });
+  });
+  
   RED.nodes.registerType('venv-config', venvConfig)
 }

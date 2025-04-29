@@ -31,6 +31,15 @@ module.exports = function (RED) {
       jsonPath = path.join(this.venvconfig.venvname, 'path.json')
       filePath = path.join(this.venvconfig.venvname, this.id + '.py')
     }
+    const sanitize = str => str.replace(/[\\/:"*?<>|]+/g, '_')
+    const baseName = this.name && this.name.trim() !== '' ? sanitize(this.name) : this.id
+    const venvDir = path.isAbsolute(this.venvconfig.venvname)
+        ? this.venvconfig.venvname
+        : path.join(path.dirname(__dirname), this.venvconfig.venvname)
+    
+    const newFileName = `${baseName}-${this.id}.py`
+    filePath = path.join(venvDir, newFileName)
+
     const json = fs.readFileSync(jsonPath)
     const pythonPath = JSON.parse(json).NODE_PYENV_PYTHON
 
