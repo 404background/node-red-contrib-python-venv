@@ -10,6 +10,7 @@
       return this.venvname + ':' + version
     },
     oneditprepare: function() {
+      const node = this;
       const venvname = $('#node-config-input-venvname').val();
       
       $.getJSON('venvconfig/path', { venvname: venvname })
@@ -30,11 +31,67 @@
             $('#venv-config-path').text('Path information not available');
           });
       });
+
+      // Check python/venv/pip availability
+      function runEnvCheck() {
+        const version = $('#node-config-input-version').val() || '';
+        $('#venv-config-alerts').empty();
+        $.getJSON('venvconfig/check', { version: version })
+          .done(function(data) {
+            const alerts = [];
+            if (!data.python) {
+              alerts.push({
+                type: 'error',
+                icon: 'fa-times-circle',
+                msgKey: 'venv-config.alert-no-python'
+              });
+            } else {
+              if (!data.venv) {
+                alerts.push({
+                  type: 'warning',
+                  icon: 'fa-exclamation-triangle',
+                  msgKey: 'venv-config.alert-no-venv'
+                });
+              }
+              if (!data.pip) {
+                alerts.push({
+                  type: 'warning',
+                  icon: 'fa-exclamation-triangle',
+                  msgKey: 'venv-config.alert-no-pip'
+                });
+              }
+            }
+            const container = $('#venv-config-alerts');
+            alerts.forEach(function(alert) {
+              const color = alert.type === 'error' ? '#a94442' : '#8a6d3b';
+              const bg = alert.type === 'error' ? '#f2dede' : '#fcf8e3';
+              const border = alert.type === 'error' ? '#ebccd1' : '#faebcc';
+              const div = $('<div>')
+                .css({
+                  padding: '8px 12px',
+                  marginBottom: '5px',
+                  border: '1px solid ' + border,
+                  borderRadius: '4px',
+                  backgroundColor: bg,
+                  color: color,
+                  fontSize: '12px'
+                });
+              div.append($('<i>').addClass('fa ' + alert.icon).css('margin-right', '6px'));
+              div.append($('<span>').attr('data-i18n', alert.msgKey).text(node._(alert.msgKey)));
+              container.append(div);
+            });
+          });
+      }
+
+      runEnvCheck();
+      $('#node-config-input-version').on('change', runEnvCheck);
     }
   })
 </script>
 
 <script type="text/html" data-template-name="venv-config">
+  <div id="venv-config-alerts"></div>
+
   <div class="form-row">
     <label for="node-config-input-venvname"
       ><i class="fa fa-folder"></i> <span data-i18n="venv-config.venvName"></label

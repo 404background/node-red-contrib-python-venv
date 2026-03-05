@@ -40,6 +40,11 @@ module.exports = function (RED) {
     const newFileName = `${baseName}-${this.id}.py`
     filePath = path.join(venvDir, newFileName)
 
+    if (!fs.existsSync(jsonPath)) {
+      node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
+      node.error('Virtual environment is not ready. path.json not found.')
+      return
+    }
     const json = fs.readFileSync(jsonPath)
     const pythonPath = JSON.parse(json).NODE_PYENV_PYTHON
 
@@ -151,6 +156,14 @@ module.exports = function (RED) {
 
       const env = { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }
       pythonProcess = child_process.spawn(pythonPath, args, { env })
+      pythonProcess.on('error', (err) => {
+        node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
+        if (done) {
+          done(err)
+        } else {
+          node.error(err)
+        }
+      })
       pythonProcess.on('message', console.log)
 
       pythonProcess.stdout.on('data', chunk => {

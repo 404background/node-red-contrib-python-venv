@@ -20,6 +20,11 @@ module.exports = function (RED) {
     if (path.isAbsolute(this.venvconfig.venvname)) {
       jsonPath = path.join(this.venvconfig.venvname, 'path.json')
     }
+    if (!fs.existsSync(jsonPath)) {
+      node.status({ fill: 'red', shape: 'dot', text: 'pip.error' })
+      node.error('Virtual environment is not ready. path.json not found.')
+      return
+    }
     const json = fs.readFileSync(jsonPath)
     const pipPath = JSON.parse(json).NODE_PYENV_PIP
     const child_process = require('child_process')
@@ -87,6 +92,14 @@ module.exports = function (RED) {
       })
 
       const pipProcess = child_process.spawn(pipPath, args)
+      pipProcess.on('error', (err) => {
+        node.status({ fill: 'red', shape: 'dot', text: 'pip.error' })
+        if (done) {
+          done(err)
+        } else {
+          node.error(err)
+        }
+      })
 
       pipProcess.on('message', console.log)
 

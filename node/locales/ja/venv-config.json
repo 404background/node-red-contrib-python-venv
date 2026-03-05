@@ -3,6 +3,9 @@
     "venvName": "仮想環境名",
     "version": "バージョン",
     "path": "パス",
-    "tips": "デプロイ時に、仮想環境の作成や削除で少し時間がかかります。"
+    "tips": "デプロイ時に、仮想環境の作成や削除で少し時間がかかります。",
+    "alert-no-python": "Pythonがインストールされていないか、PATHに見つかりません。仮想環境を作成できません。",
+    "alert-no-venv": "Python venvモジュールがインストールされていません。Debian/Ubuntuの場合: sudo apt install python3-venv",
+    "alert-no-pip": "Python pipが利用できません。Debian/Ubuntuの場合: sudo apt install python3-pip python3-venv"
   }
 }

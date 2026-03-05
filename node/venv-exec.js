@@ -21,6 +21,11 @@ module.exports = function (RED) {
       jsonPath = path.join(this.venvconfig.venvname, 'path.json')
     }
 
+    if (!fs.existsSync(jsonPath)) {
+      node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
+      node.error('Virtual environment is not ready. path.json not found.')
+      return
+    }
     const json = fs.readFileSync(jsonPath)
     const venvExec = JSON.parse(json).NODE_PYENV_EXEC
     let execPath = ''
@@ -83,6 +88,11 @@ module.exports = function (RED) {
 
           pythonProcess = child_process.spawn(execPath + ' ' + args, {
             shell: true,
+          })
+          pythonProcess.on('error', (err) => {
+            node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
+            node.error(err)
+            if (done) done(err)
           })
           let stdoutData = ''
           let stderrData = ''
