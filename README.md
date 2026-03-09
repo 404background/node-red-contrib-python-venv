@@ -34,7 +34,13 @@ You can access Node-RED messages like `print(msg['payload'])`.
 
 ![msg-property.png](./img/msg-property.png)
 
-You can also access flow and global objects like `print(node['flow']['payload'])`, `print(node['global']['payload'])`.
+You can also set values on the `msg` object directly from Python:  
+`msg['payload'] = 'hello'`, `msg['topic'] = 'my-topic'`.  
+These values will be passed to downstream nodes without using `print()`.  
+If `print()` output is present, it will override `msg['payload']`.
+
+You can also access flow and global objects like `print(node['flow']['payload'])`, `print(node['global']['payload'])`.  
+Values assigned to `node['flow']` and `node['global']` in Python are written back to the Node-RED context.
 
 ![msg-property-flow-global.png](./img/msg-property-flow-global.png)
 

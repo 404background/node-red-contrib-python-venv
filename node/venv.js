@@ -31,7 +31,7 @@ module.exports = function (RED) {
       jsonPath = path.join(this.venvconfig.venvname, 'path.json')
       filePath = path.join(this.venvconfig.venvname, this.id + '.py')
     }
-    const sanitize = str => str.replace(/[\\/:"*?<>|]+/g, '_')
+    const sanitize = str => str.replace(/[\\/:"'*?<>|()]+/g, '_')
     const baseName = this.name && this.name.trim() !== '' ? sanitize(this.name) : this.id
     const venvDir = path.isAbsolute(this.venvconfig.venvname)
         ? this.venvconfig.venvname
@@ -87,12 +87,21 @@ module.exports = function (RED) {
       fs.writeFileSync(filePath, code, { encoding: 'utf-8' })
 
       const args = ['-c'];
-      const tempDir = path.join(path.dirname(__dirname), this.venvconfig.venvname, 'Temp');
+      const tempDir = path.join(venvDir, 'Temp');
       if (!fs.existsSync(tempDir)) {
           fs.mkdirSync(tempDir, { recursive: true });
       }
 
       const tempMsgPath = path.join(tempDir, `${node.id}_msg.json`);
+      const tempMsgOutputPath = path.join(tempDir, `${node.id}_msg_out.json`);
+      const tempFlowOutputPath = path.join(tempDir, `${node.id}_flow_out.json`);
+      const tempGlobalOutputPath = path.join(tempDir, `${node.id}_global_out.json`);
+
+      // Remove stale output files from previous runs to avoid reading old data on error
+      try { fs.unlinkSync(tempMsgOutputPath) } catch (_) {}
+      try { fs.unlinkSync(tempFlowOutputPath) } catch (_) {}
+      try { fs.unlinkSync(tempGlobalOutputPath) } catch (_) {}
+
       fs.writeFileSync(tempMsgPath, removeCircularReferences(msg), { encoding: 'utf-8' });
 
       const flowRegex = /node\[['"]flow['"]\]/;
@@ -106,7 +115,10 @@ module.exports = function (RED) {
       const tempFlowPath = path.join(tempDir, `${node.id}_flow.json`);
       const tempGlobalPath = path.join(tempDir, `${node.id}_global.json`);
 
-      if (flowRegex.test(code)) {
+      const usesFlowContext = flowRegex.test(code);
+      const usesGlobalContext = globalRegex.test(code);
+
+      if (usesFlowContext) {
           const flowData = flowContext.keys().reduce((obj, key) => {
               obj[key] = flowContext.get(key);
               return obj;
@@ -118,7 +130,7 @@ module.exports = function (RED) {
           }
       }
 
-      if (globalRegex.test(code)) {
+      if (usesGlobalContext) {
           const globalData = globalContext.keys().reduce((obj, key) => {
               obj[key] = globalContext.get(key);
               return obj;
@@ -130,7 +142,31 @@ module.exports = function (RED) {
           }
       }
 
-      pythonScript += `exec(open(r'${filePath}', encoding='utf-8').read())`;
+      pythonScript += `exec(open(r'${filePath}', encoding='utf-8').read())\n`;
+
+      // Write back msg after execution
+      pythonScript += `try:\n` +
+                      `    with open(r'${tempMsgOutputPath}', 'w', encoding='utf-8') as _msg_out:\n` +
+                      `        json.dump(msg, _msg_out, default=str)\n` +
+                      `except Exception:\n` +
+                      `    pass\n`;
+
+      if (usesFlowContext) {
+          pythonScript += `try:\n` +
+                          `    with open(r'${tempFlowOutputPath}', 'w', encoding='utf-8') as _flow_out:\n` +
+                          `        json.dump(node['flow'], _flow_out, default=str)\n` +
+                          `except Exception:\n` +
+                          `    pass\n`;
+      }
+
+      if (usesGlobalContext) {
+          pythonScript += `try:\n` +
+                          `    with open(r'${tempGlobalOutputPath}', 'w', encoding='utf-8') as _global_out:\n` +
+                          `        json.dump(node['global'], _global_out, default=str)\n` +
+                          `except Exception:\n` +
+                          `    pass\n`;
+      }
+
       args.push(pythonScript);
 
       let stdoutData = ''
@@ -200,40 +236,77 @@ module.exports = function (RED) {
             node.error(err)
           }
         }
-        // Single mode, send the output
-        else if (!continuous) {
-          runningScripts--
-          msg.payload = stdoutData
-          send(msg)
-          if (runningScripts === 0) {
+        else {
+          // Read back msg properties set in Python
+          try {
+            if (fs.existsSync(tempMsgOutputPath)) {
+              const outputMsg = JSON.parse(fs.readFileSync(tempMsgOutputPath, 'utf-8'));
+              for (const [key, value] of Object.entries(outputMsg)) {
+                msg[key] = value;
+              }
+            }
+          } catch (e) { /* ignore read errors */ }
+
+          // Read back flow context set in Python
+          if (usesFlowContext) {
+            try {
+              if (fs.existsSync(tempFlowOutputPath)) {
+                const flowData = JSON.parse(fs.readFileSync(tempFlowOutputPath, 'utf-8'));
+                for (const [key, value] of Object.entries(flowData)) {
+                  flowContext.set(key, value);
+                }
+              }
+            } catch (e) { /* ignore read errors */ }
+          }
+
+          // Read back global context set in Python
+          if (usesGlobalContext) {
+            try {
+              if (fs.existsSync(tempGlobalOutputPath)) {
+                const globalData = JSON.parse(fs.readFileSync(tempGlobalOutputPath, 'utf-8'));
+                for (const [key, value] of Object.entries(globalData)) {
+                  globalContext.set(key, value);
+                }
+              }
+            } catch (e) { /* ignore read errors */ }
+          }
+
+          if (!continuous) {
+            runningScripts--
+
+            // Backward compat: stdout overrides msg.payload if non-empty
+            if (stdoutData) {
+              msg.payload = stdoutData;
+            }
+            send(msg)
+            if (runningScripts === 0) {
+              node.status({
+                fill: 'green',
+                shape: 'dot',
+                text: 'venv.standby',
+              })
+            } else {
+              node.status({
+                fill: 'blue',
+                shape: 'dot',
+                text: runningText + runningScripts,
+              })
+            }
+          }
+          // In continuous mode, check if the process was killed or if it has exited cleanly
+          else if (pythonProcess.killed) {
+            node.status({
+              fill: 'yellow',
+              shape: 'dot',
+              text: 'venv.terminate-continuous',
+            })
+          } else {
             node.status({
               fill: 'green',
               shape: 'dot',
               text: 'venv.standby',
             })
-          } else {
-            node.status({
-              fill: 'blue',
-              shape: 'dot',
-              text: runningText + runningScripts,
-            })
           }
-          node.standby = true
-        }
-        // In continuous mode, check if the process was killed or if it has exited cleanly
-        else if (pythonProcess.killed) {
-          node.status({
-            fill: 'yellow',
-            shape: 'dot',
-            text: 'venv.terminate-continuous',
-          })
-          node.standby = true
-        } else if (code === 0) {
-          node.status({
-            fill: 'green',
-            shape: 'dot',
-            text: 'venv.standby',
-          })
           node.standby = true
         }
 
