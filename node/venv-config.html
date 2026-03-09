@@ -1,4 +1,64 @@
 <script type="text/javascript">
+  // Merge duplicate venv-config nodes that already exist in the workspace.
+  // Runs once after the editor finishes loading all nodes.
+  (function () {
+    function mergeDuplicateVenvConfigs() {
+      // Group venv-config nodes by venvname + version
+      var groups = {};
+      RED.nodes.eachConfig(function (n) {
+        if (n.type === 'venv-config') {
+          var key = (n.venvname || '') + '::' + (n.version || 'default');
+          if (!groups[key]) {
+            groups[key] = [];
+          }
+          groups[key].push(n);
+        }
+      });
+
+      var merged = false;
+      Object.keys(groups).forEach(function (key) {
+        var nodes = groups[key];
+        if (nodes.length <= 1) return;
+
+        // Keep the first one, remap and remove the rest
+        var keep = nodes[0];
+        for (var i = 1; i < nodes.length; i++) {
+          var dup = nodes[i];
+          // Remap all regular nodes referencing the duplicate
+          RED.nodes.eachNode(function (n) {
+            if (n.venvconfig === dup.id) {
+              n.venvconfig = keep.id;
+              n.dirty = true;
+              n.changed = true;
+            }
+          });
+          // Remap any config nodes referencing the duplicate
+          RED.nodes.eachConfig(function (n) {
+            if (n.venvconfig === dup.id) {
+              n.venvconfig = keep.id;
+              n.dirty = true;
+              n.changed = true;
+            }
+          });
+          RED.nodes.remove(dup.id);
+          merged = true;
+        }
+      });
+
+      if (merged) {
+        RED.nodes.dirty(true);
+      }
+    }
+
+    // Wait for editor to finish loading, then merge
+    RED.events.on('workspace:dirty', function handler() {
+      RED.events.off('workspace:dirty', handler);
+      setTimeout(mergeDuplicateVenvConfigs, 500);
+    });
+    // Also run after a short delay on initial load (in case workspace:dirty doesn't fire)
+    setTimeout(mergeDuplicateVenvConfigs, 2000);
+  })();
+
   RED.nodes.registerType('venv-config', {
     category: 'config',
     defaults: {
@@ -8,6 +68,48 @@
     label: function () {
       const version = this.version || 'default'
       return this.venvname + ':' + version
+    },
+    onadd: function () {
+      // When a config node is added (e.g. via import/copy), check if an existing
+      // venv-config node already uses the same venvname and version. If so, remap
+      // all nodes that reference this new config to the existing one, then remove
+      // this duplicate. If versions differ, keep both.
+      // Use setTimeout to defer execution until after the entire import batch completes,
+      // so that all referencing nodes are available for remapping.
+      var self = this;
+      setTimeout(function () {
+        var existing = null;
+        var selfVersion = self.version || 'default';
+        RED.nodes.eachConfig(function (n) {
+          if (n.type === 'venv-config' && n.id !== self.id && n.venvname === self.venvname) {
+            var nVersion = n.version || 'default';
+            if (nVersion === selfVersion) {
+              existing = n;
+            }
+          }
+        });
+        if (existing) {
+          // Remap all nodes referencing this duplicate to the existing config
+          RED.nodes.eachNode(function (n) {
+            if (n.venvconfig === self.id) {
+              n.venvconfig = existing.id;
+              n.dirty = true;
+              n.changed = true;
+            }
+          });
+          // Also remap any other config nodes that reference this one
+          RED.nodes.eachConfig(function (n) {
+            if (n.venvconfig === self.id) {
+              n.venvconfig = existing.id;
+              n.dirty = true;
+              n.changed = true;
+            }
+          });
+          // Remove this duplicate config node
+          RED.nodes.remove(self.id);
+          RED.nodes.dirty(true);
+        }
+      }, 0);
     },
     oneditprepare: function() {
       const node = this;
@@ -21,7 +123,7 @@
           $('#venv-config-path').text('Path information not available');
         });
 
-      $('#node-config-input-venvname').on('change', function() {
+      $('#node-config-input-venvname').on('input', function() {
         const newVenvname = $(this).val();
         $.getJSON('venvconfig/path', { venvname: newVenvname })
           .done(function(data) {
@@ -30,12 +132,45 @@
           .fail(function() {
             $('#venv-config-path').text('Path information not available');
           });
+        checkDuplicate();
       });
+
+      // Check for duplicate venvname (informational, runs on every keystroke)
+      function checkDuplicate() {
+        $('#venv-config-duplicate-alert').remove();
+        const currentVenvname = $('#node-config-input-venvname').val();
+        var existingNode = null;
+        RED.nodes.eachConfig(function (n) {
+          if (n.type === 'venv-config' && n.id !== node.id && n.venvname === currentVenvname) {
+            existingNode = n;
+          }
+        });
+        if (existingNode) {
+          const container = $('#venv-config-alerts');
+          const div = $('<div>')
+            .attr('id', 'venv-config-duplicate-alert')
+            .css({
+              padding: '8px 12px',
+              marginBottom: '5px',
+              border: '1px solid #bce8f1',
+              borderRadius: '4px',
+              backgroundColor: '#d9edf7',
+              color: '#31708f',
+              fontSize: '12px'
+            });
+          div.append($('<i>').addClass('fa fa-info-circle').css('margin-right', '6px'));
+          div.append($('<span>').attr('data-i18n', 'venv-config.alert-duplicate').text(node._('venv-config.alert-duplicate')));
+          container.prepend(div);
+        }
+      }
 
       // Check python/venv/pip availability
       function runEnvCheck() {
         const version = $('#node-config-input-version').val() || '';
         $('#venv-config-alerts').empty();
+
+        checkDuplicate();
+
         $.getJSON('venvconfig/check', { version: version })
           .done(function(data) {
             const alerts = [];
@@ -43,21 +178,25 @@
               alerts.push({
                 type: 'error',
                 icon: 'fa-times-circle',
-                msgKey: 'venv-config.alert-no-python'
+                text: node._('venv-config.alert-no-python')
               });
             } else {
               if (!data.venv) {
+                var venvMsg = '';
+                data.details.forEach(function(d) { if (d.indexOf('venv') !== -1) venvMsg = d; });
                 alerts.push({
                   type: 'warning',
                   icon: 'fa-exclamation-triangle',
-                  msgKey: 'venv-config.alert-no-venv'
+                  text: venvMsg || node._('venv-config.alert-no-venv')
                 });
               }
               if (!data.pip) {
+                var pipMsg = '';
+                data.details.forEach(function(d) { if (d.indexOf('pip') !== -1) pipMsg = d; });
                 alerts.push({
                   type: 'warning',
                   icon: 'fa-exclamation-triangle',
-                  msgKey: 'venv-config.alert-no-pip'
+                  text: pipMsg || node._('venv-config.alert-no-pip')
                 });
               }
             }
@@ -77,7 +216,7 @@
                   fontSize: '12px'
                 });
               div.append($('<i>').addClass('fa ' + alert.icon).css('margin-right', '6px'));
-              div.append($('<span>').attr('data-i18n', alert.msgKey).text(node._(alert.msgKey)));
+              div.append($('<span>').text(alert.text));
               container.append(div);
             });
           });

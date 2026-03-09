@@ -10,20 +10,28 @@ module.exports = function (RED) {
   function checkPythonEnvironment(version) {
     const result = { python: false, venv: false, pip: false, pythonCmd: '', details: [] }
 
-    // Determine python command
+    // Determine python command and args for spawnSync
     let pythonCmd = 'python3'
+    let spawnCmd = 'python3'
+    let spawnArgs = []
+    // On Windows, avoid shell: true to prevent cmd.exe from splitting -c arguments on spaces.
+    // On Linux/macOS, use shell: true so PATH is resolved correctly (e.g. when running as a service).
+    const useShell = process.platform !== 'win32'
     if (process.platform === 'win32') {
       if (version && version !== '' && version !== 'default') {
         pythonCmd = `py -${version}`
+        spawnCmd = 'py'
+        spawnArgs = [`-${version}`]
       } else {
         pythonCmd = 'python'
+        spawnCmd = 'python'
       }
     }
     result.pythonCmd = pythonCmd
 
     // Check python
     try {
-      const ver = spawnSync(pythonCmd, ['--version'], { shell: true, timeout: 10000 })
+      const ver = spawnSync(spawnCmd, [...spawnArgs, '--version'], { shell: useShell, timeout: 10000 })
       if (ver.status === 0) {
         result.python = true
         result.details.push(ver.stdout.toString().trim())
@@ -38,11 +46,15 @@ module.exports = function (RED) {
 
     // Check venv module
     try {
-      const venvCheck = spawnSync(pythonCmd, ['-c', 'import venv'], { shell: true, timeout: 10000 })
+      const venvCheck = spawnSync(spawnCmd, [...spawnArgs, '-c', 'import venv'], { shell: useShell, timeout: 10000 })
       if (venvCheck.status === 0) {
         result.venv = true
       } else {
-        result.details.push('venv module is not available. On Debian/Ubuntu, install it with: sudo apt install python3-venv')
+        if (process.platform === 'win32') {
+          result.details.push('venv module is not available. Please install Python from https://www.python.org/ (not the Microsoft Store version).')
+        } else {
+          result.details.push('venv module is not available. On Debian/Ubuntu, install it with: sudo apt install python3-venv')
+        }
       }
     } catch (e) {
       result.details.push('venv module is not available.')
@@ -50,16 +62,18 @@ module.exports = function (RED) {
 
     // Check pip module (ensurepip)
     try {
-      const pipCheck = spawnSync(pythonCmd, ['-c', 'import ensurepip'], { shell: true, timeout: 10000 })
+      const pipCheck = spawnSync(spawnCmd, [...spawnArgs, '-c', 'import ensurepip'], { shell: useShell, timeout: 10000 })
       if (pipCheck.status === 0) {
         result.pip = true
       } else {
         // Also check if pip itself is available
-        const pipDirect = spawnSync(pythonCmd, ['-m', 'pip', '--version'], { shell: true, timeout: 10000 })
+        const pipDirect = spawnSync(spawnCmd, [...spawnArgs, '-m', 'pip', '--version'], { shell: useShell, timeout: 10000 })
         if (pipDirect.status === 0) {
           result.pip = true
         } else {
-          result.details.push('pip is not available. On Debian/Ubuntu, install it with: sudo apt install python3-pip')
+          result.details.push('pip is not available.' + (process.platform === 'win32'
+            ? ' Please install Python from https://www.python.org/ and ensure pip is included.'
+            : ' On Debian/Ubuntu, install it with: sudo apt install python3-pip'))
         }
       }
     } catch (e) {
@@ -87,11 +101,19 @@ module.exports = function (RED) {
     }
 
     if (!envCheck.venv) {
-      node.warn('Python venv module is not installed. On Debian/Ubuntu, run: sudo apt install python3-venv')
+      if (process.platform === 'win32') {
+        node.warn('Python venv module is not available. Please install Python from https://www.python.org/ (not the Microsoft Store version).')
+      } else {
+        node.warn('Python venv module is not installed. On Debian/Ubuntu, run: sudo apt install python3-venv')
+      }
     }
 
     if (!envCheck.pip) {
-      node.warn('Python pip is not available. On Debian/Ubuntu, run: sudo apt install python3-pip python3-venv')
+      if (process.platform === 'win32') {
+        node.warn('Python pip is not available. Please install Python from https://www.python.org/ and ensure pip is included.')
+      } else {
+        node.warn('Python pip is not available. On Debian/Ubuntu, run: sudo apt install python3-pip python3-venv')
+      }
     }
 
     if (envCheck.venv) {
