@@ -21,8 +21,12 @@ if os.path.isdir(venvPath):
 try:
     import venv
 except ImportError:
-    print('WARNING: python3-venv is not installed.', file=sys.stderr)
-    print('On Debian/Ubuntu, install it with: sudo apt install python3-venv', file=sys.stderr)
+    if os.name == 'nt':
+        print('WARNING: Python venv module is not available.', file=sys.stderr)
+        print('Please install Python from https://www.python.org/ (not the Microsoft Store version).', file=sys.stderr)
+    else:
+        print('WARNING: python3-venv is not installed.', file=sys.stderr)
+        print('On Debian/Ubuntu, install it with: sudo apt install python3-venv', file=sys.stderr)
     sys.exit(1)
 
 # Check if ensurepip (used by venv to bootstrap pip) is available
@@ -32,7 +36,10 @@ try:
 except ImportError:
     pip_available = False
     print('WARNING: ensurepip is not available. pip may not be installed in the virtual environment.', file=sys.stderr)
-    print('On Debian/Ubuntu, install it with: sudo apt install python3-pip python3-venv', file=sys.stderr)
+    if os.name == 'nt':
+        print('Please install Python from https://www.python.org/ and ensure pip is included.', file=sys.stderr)
+    else:
+        print('On Debian/Ubuntu, install it with: sudo apt install python3-pip python3-venv', file=sys.stderr)
 
 # Determine python command for subprocess calls
 python_cmd = 'python' if os.name == 'nt' else 'python3'

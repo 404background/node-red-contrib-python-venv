@@ -3,6 +3,15 @@
   <p>
     You can access Node-RED messages like <code>print(msg['payload'])</code>, <code>print(node['flow']['payload'])</code>, <code>print(node['global']['payload'])</code>.
   </p>
+  <p>
+    You can also set values on the <code>msg</code> object from Python.
+    For example, <code>msg['payload'] = 'hello'</code> or <code>msg['topic'] = 'my-topic'</code>.
+    These values will be reflected in downstream nodes.
+    Similarly, you can set flow and global context: <code>node['flow']['key'] = value</code>, <code>node['global']['key'] = value</code>.
+  </p>
+  <p>
+    If <code>print()</code> output is present, it will override <code>msg['payload']</code>.
+  </p>
   <h3>Continuous</h3>
   <h4>If Continuous is not enabled:</h4>
   <p>This node sends messages after the code has finished execution.</p>
@@ -10,5 +19,9 @@
   <p>
     Messages are sent sequentially as output is available. For example, the
     output of a while statement can be sequential.
+  </p>
+  <p>
+    Values assigned to <code>msg</code>, <code>node['flow']</code>, and <code>node['global']</code>
+    in Python are reflected when the process exits.
   </p>
 </script>
