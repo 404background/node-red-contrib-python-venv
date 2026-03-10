@@ -3,6 +3,19 @@
   <p>
     Node-REDの他のノードからのメッセージは、<code>print(msg['payload'])</code>、<code>print(node['flow']['payload'])</code>、<code>print(node['global']['payload'])</code>のように取得できます。
   </p>
+  <p>
+    Pythonから<code>msg</code>オブジェクトに値を代入することもできます。 例:
+    <code>msg['payload'] = 'hello'</code>、<code>msg['topic'] = 'my-topic'</code
+    >。 代入した値は後続のノードに反映されます。
+    同様に、フローコンテキストやグローバルコンテキストにも値を設定できます:
+    <code>node['flow']['key'] = value</code>、<code
+      >node['global']['key'] = value</code
+    >。
+  </p>
+  <p>
+    <code>print()</code
+    >による出力がある場合、<code>msg['payload']</code>は出力内容で上書きされます。
+  </p>
   <h3>連続実行</h3>
   <h4>連続実行が有効でない場合：</h4>
   <p>コードの実行が終了してからメッセージが送られます。</p>
@@ -10,5 +23,21 @@
   <p>
     出力があれば順次メッセージが送られます。
     例えばwhile文の出力を順次出力できます。
+  </p>
+  <p>
+    Pythonで<code>msg</code>、<code>node['flow']</code>、<code>node['global']</code>に代入した値は、
+    プロセス終了時に反映されます。
+  </p>
+  <p>
+    <b>重要:</b>
+    <code>node['flow']</code
+    >と<code>node['global']</code>は実行開始時のスナップショットです。
+    実行中に他のノードが行った変更はPythonからは見えず、
+    Pythonでの変更も他のノードにはプロセス終了まで反映されません。
+    <b
+      >連続実行モードではプロセスが長時間動作するため、flow/globalコンテキストの他ノードとのリアルタイム共有はできません。</b
+    >
+    リアルタイムで値を共有したい場合は、<code>print()</code>で出力し、
+    後続のfunction/changeノードでコンテキストに書き込んでください。
   </p>
 </script>

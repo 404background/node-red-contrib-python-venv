@@ -26,7 +26,18 @@ module.exports = function (RED) {
       return
     }
     const json = fs.readFileSync(jsonPath)
-    const pipPath = JSON.parse(json).NODE_PYENV_PIP
+    const rawPipPath = JSON.parse(json).NODE_PYENV_PIP
+    const venvDir = path.isAbsolute(this.venvconfig.venvname)
+      ? this.venvconfig.venvname
+      : path.join(path.dirname(__dirname), this.venvconfig.venvname)
+    let pipPath = path.isAbsolute(rawPipPath)
+      ? rawPipPath
+      : path.join(venvDir, rawPipPath)
+    if (!fs.existsSync(pipPath)) {
+      const defaultRel =
+        process.platform === 'win32' ? 'Scripts/pip.exe' : 'bin/pip'
+      pipPath = path.join(venvDir, defaultRel)
+    }
     const child_process = require('child_process')
 
     const tail = config.tail || false
@@ -92,7 +103,7 @@ module.exports = function (RED) {
       })
 
       const pipProcess = child_process.spawn(pipPath, args)
-      pipProcess.on('error', (err) => {
+      pipProcess.on('error', err => {
         node.status({ fill: 'red', shape: 'dot', text: 'pip.error' })
         if (done) {
           done(err)

@@ -27,7 +27,17 @@ module.exports = function (RED) {
       return
     }
     const json = fs.readFileSync(jsonPath)
-    const venvExec = JSON.parse(json).NODE_PYENV_EXEC
+    const rawExecPath = JSON.parse(json).NODE_PYENV_EXEC
+    const venvDir = path.isAbsolute(this.venvconfig.venvname)
+      ? this.venvconfig.venvname
+      : path.join(path.dirname(__dirname), this.venvconfig.venvname)
+    let venvExec = path.isAbsolute(rawExecPath)
+      ? rawExecPath
+      : path.join(venvDir, rawExecPath)
+    if (!fs.existsSync(venvExec)) {
+      const defaultRel = process.platform === 'win32' ? 'Scripts/' : 'bin/'
+      venvExec = path.join(venvDir, defaultRel)
+    }
     let execPath = ''
     let pythonProcess = null
     node.status({ fill: 'green', shape: 'dot', text: 'venv-exec.standby' })
@@ -89,7 +99,7 @@ module.exports = function (RED) {
           pythonProcess = child_process.spawn(execPath + ' ' + args, {
             shell: true,
           })
-          pythonProcess.on('error', (err) => {
+          pythonProcess.on('error', err => {
             node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
             node.error(err)
             if (done) done(err)
@@ -99,7 +109,7 @@ module.exports = function (RED) {
           node.status({
             fill: 'blue',
             shape: 'dot',
-            text: 'venv-exec.running-continuous'
+            text: 'venv-exec.running-continuous',
           })
 
           pythonProcess.stdout.on('data', chunk => {
@@ -116,7 +126,7 @@ module.exports = function (RED) {
               node.status({
                 fill: 'yellow',
                 shape: 'dot',
-                text: 'venv-exec.terminate-continuous'
+                text: 'venv-exec.terminate-continuous',
               })
               done()
               return

@@ -6,6 +6,7 @@
     "tips": "When you deploy, it takes time to create or remove the Python virtual environment.",
     "alert-no-python": "Python is not installed or not found in PATH. Virtual environment cannot be created.",
     "alert-no-venv": "Python venv module is not installed. On Debian/Ubuntu, run: sudo apt install python3-venv",
-    "alert-no-pip": "Python pip is not available. On Debian/Ubuntu, run: sudo apt install python3-pip python3-venv"
+    "alert-no-pip": "Python pip is not available. On Debian/Ubuntu, run: sudo apt install python3-pip python3-venv",
+    "alert-duplicate": "A configuration node with the same virtual environment name already exists. The existing virtual environment will be shared."
   }
 }

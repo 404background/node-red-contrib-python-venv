@@ -8,22 +8,41 @@ module.exports = function (RED) {
    * Returns { python: bool, venv: bool, pip: bool, pythonCmd: string, details: string[] }
    */
   function checkPythonEnvironment(version) {
-    const result = { python: false, venv: false, pip: false, pythonCmd: '', details: [] }
+    const result = {
+      python: false,
+      venv: false,
+      pip: false,
+      pythonCmd: '',
+      details: [],
+    }
 
-    // Determine python command
+    // Determine python command and args for spawnSync
     let pythonCmd = 'python3'
+    let spawnCmd = 'python3'
+    let spawnArgs = []
+    // On Windows, avoid shell: true to prevent cmd.exe from splitting -c arguments on spaces.
+    // On Linux/macOS, use shell: true so PATH is resolved correctly (e.g. when running as a service).
+    const useShell = process.platform !== 'win32'
+    // When using shell, wrap -c code in double quotes to prevent word splitting
+    const shellQuote = code => (useShell ? `"${code}"` : code)
     if (process.platform === 'win32') {
       if (version && version !== '' && version !== 'default') {
         pythonCmd = `py -${version}`
+        spawnCmd = 'py'
+        spawnArgs = [`-${version}`]
       } else {
         pythonCmd = 'python'
+        spawnCmd = 'python'
       }
     }
     result.pythonCmd = pythonCmd
 
     // Check python
     try {
-      const ver = spawnSync(pythonCmd, ['--version'], { shell: true, timeout: 10000 })
+      const ver = spawnSync(spawnCmd, [...spawnArgs, '--version'], {
+        shell: useShell,
+        timeout: 10000,
+      })
       if (ver.status === 0) {
         result.python = true
         result.details.push(ver.stdout.toString().trim())
@@ -38,11 +57,23 @@ module.exports = function (RED) {
 
     // Check venv module
     try {
-      const venvCheck = spawnSync(pythonCmd, ['-c', 'import venv'], { shell: true, timeout: 10000 })
+      const venvCheck = spawnSync(
+        spawnCmd,
+        [...spawnArgs, '-c', shellQuote('import venv, ensurepip')],
+        { shell: useShell, timeout: 10000 }
+      )
       if (venvCheck.status === 0) {
         result.venv = true
       } else {
-        result.details.push('venv module is not available. On Debian/Ubuntu, install it with: sudo apt install python3-venv')
+        if (process.platform === 'win32') {
+          result.details.push(
+            'venv module is not available. Please install Python from https://www.python.org/ (not the Microsoft Store version).'
+          )
+        } else {
+          result.details.push(
+            'venv module is not available. On Debian/Ubuntu, install it with: sudo apt install python3-venv'
+          )
+        }
       }
     } catch (e) {
       result.details.push('venv module is not available.')
@@ -50,17 +81,20 @@ module.exports = function (RED) {
 
     // Check pip module (ensurepip)
     try {
-      const pipCheck = spawnSync(pythonCmd, ['-c', 'import ensurepip'], { shell: true, timeout: 10000 })
+      const pipCheck = spawnSync(
+        spawnCmd,
+        [...spawnArgs, '-c', shellQuote('import ensurepip')],
+        { shell: useShell, timeout: 10000 }
+      )
       if (pipCheck.status === 0) {
         result.pip = true
       } else {
-        // Also check if pip itself is available
-        const pipDirect = spawnSync(pythonCmd, ['-m', 'pip', '--version'], { shell: true, timeout: 10000 })
-        if (pipDirect.status === 0) {
-          result.pip = true
-        } else {
-          result.details.push('pip is not available. On Debian/Ubuntu, install it with: sudo apt install python3-pip')
-        }
+        result.details.push(
+          'pip is not available.' +
+            (process.platform === 'win32'
+              ? ' Please install Python from https://www.python.org/ and ensure pip is included.'
+              : ' On Debian/Ubuntu, install it with: sudo apt install python3-pip')
+        )
       }
     } catch (e) {
       result.details.push('pip is not available.')
@@ -82,16 +116,34 @@ module.exports = function (RED) {
     const envCheck = checkPythonEnvironment(this.version)
 
     if (!envCheck.python) {
-      node.warn('Python is not installed or not found in PATH. Virtual environment cannot be created.')
+      node.warn(
+        'Python is not installed or not found in PATH. Virtual environment cannot be created.'
+      )
       return
     }
 
     if (!envCheck.venv) {
-      node.warn('Python venv module is not installed. On Debian/Ubuntu, run: sudo apt install python3-venv')
+      if (process.platform === 'win32') {
+        node.warn(
+          'Python venv module is not available. Please install Python from https://www.python.org/ (not the Microsoft Store version).'
+        )
+      } else {
+        node.warn(
+          'Python venv module is not installed. On Debian/Ubuntu, run: sudo apt install python3-venv'
+        )
+      }
     }
 
     if (!envCheck.pip) {
-      node.warn('Python pip is not available. On Debian/Ubuntu, run: sudo apt install python3-pip python3-venv')
+      if (process.platform === 'win32') {
+        node.warn(
+          'Python pip is not available. Please install Python from https://www.python.org/ and ensure pip is included.'
+        )
+      } else {
+        node.warn(
+          'Python pip is not available. On Debian/Ubuntu, run: sudo apt install python3-pip python3-venv'
+        )
+      }
     }
 
     if (envCheck.venv) {
@@ -119,24 +171,34 @@ module.exports = function (RED) {
     })
   }
 
-  RED.httpAdmin.get('/venvconfig/path', RED.auth.needsPermission('venvconfig.read'), function(req, res) {
-    const venvname = req.query.venvname;
-    
-    let absolutePath;
-    if (path.isAbsolute(venvname)) {
-      absolutePath = venvname;
-    } else {
-      absolutePath = path.resolve(path.join(path.dirname(path.dirname(__dirname)), venvname));
-    }
-    
-    res.json({ path: absolutePath });
-  });
+  RED.httpAdmin.get(
+    '/venvconfig/path',
+    RED.auth.needsPermission('venvconfig.read'),
+    function (req, res) {
+      const venvname = req.query.venvname
 
-  RED.httpAdmin.get('/venvconfig/check', RED.auth.needsPermission('venvconfig.read'), function(req, res) {
-    const version = req.query.version || '';
-    const result = checkPythonEnvironment(version);
-    res.json(result);
-  });
-  
+      let absolutePath
+      if (path.isAbsolute(venvname)) {
+        absolutePath = venvname
+      } else {
+        absolutePath = path.resolve(
+          path.join(path.dirname(path.dirname(__dirname)), venvname)
+        )
+      }
+
+      res.json({ path: absolutePath })
+    }
+  )
+
+  RED.httpAdmin.get(
+    '/venvconfig/check',
+    RED.auth.needsPermission('venvconfig.read'),
+    function (req, res) {
+      const version = req.query.version || ''
+      const result = checkPythonEnvironment(version)
+      res.json(result)
+    }
+  )
+
   RED.nodes.registerType('venv-config', venvConfig)
 }

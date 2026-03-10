@@ -1,7 +1,21 @@
 <script type="text/html" data-help-name="venv">
   <p>You can execute Python code in this node.</p>
   <p>
-    You can access Node-RED messages like <code>print(msg['payload'])</code>, <code>print(node['flow']['payload'])</code>, <code>print(node['global']['payload'])</code>.
+    You can access Node-RED messages like <code>print(msg['payload'])</code>,
+    <code>print(node['flow']['payload'])</code>,
+    <code>print(node['global']['payload'])</code>.
+  </p>
+  <p>
+    You can also set values on the <code>msg</code> object from Python. For
+    example, <code>msg['payload'] = 'hello'</code> or
+    <code>msg['topic'] = 'my-topic'</code>. These values will be reflected in
+    downstream nodes. Similarly, you can set flow and global context:
+    <code>node['flow']['key'] = value</code>,
+    <code>node['global']['key'] = value</code>.
+  </p>
+  <p>
+    If <code>print()</code> output is present, it will override
+    <code>msg['payload']</code>.
   </p>
   <h3>Continuous</h3>
   <h4>If Continuous is not enabled:</h4>
@@ -10,5 +24,22 @@
   <p>
     Messages are sent sequentially as output is available. For example, the
     output of a while statement can be sequential.
+  </p>
+  <p>
+    Values assigned to <code>msg</code>, <code>node['flow']</code>, and
+    <code>node['global']</code>
+    in Python are reflected when the process exits.
+  </p>
+  <p>
+    <b>Important:</b> <code>node['flow']</code> and
+    <code>node['global']</code> are snapshots taken at the start of execution.
+    Changes made by other nodes during execution are not visible to Python, and
+    Python's changes are not visible to other nodes until the process exits.
+    <b
+      >In Continuous mode, since the process runs for a long time, real-time
+      sharing of flow/global context with other nodes is not possible.</b
+    >
+    If you need to share values in real time, use <code>print()</code> and write
+    to context via a downstream function/change node.
   </p>
 </script>

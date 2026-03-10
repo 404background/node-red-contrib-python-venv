@@ -21,8 +21,12 @@ if os.path.isdir(venvPath):
 try:
     import venv
 except ImportError:
-    print('WARNING: python3-venv is not installed.', file=sys.stderr)
-    print('On Debian/Ubuntu, install it with: sudo apt install python3-venv', file=sys.stderr)
+    if os.name == 'nt':
+        print('WARNING: Python venv module is not available.', file=sys.stderr)
+        print('Please install Python from https://www.python.org/ (not the Microsoft Store version).', file=sys.stderr)
+    else:
+        print('WARNING: python3-venv is not installed.', file=sys.stderr)
+        print('On Debian/Ubuntu, install it with: sudo apt install python3-venv', file=sys.stderr)
     sys.exit(1)
 
 # Check if ensurepip (used by venv to bootstrap pip) is available
@@ -32,7 +36,10 @@ try:
 except ImportError:
     pip_available = False
     print('WARNING: ensurepip is not available. pip may not be installed in the virtual environment.', file=sys.stderr)
-    print('On Debian/Ubuntu, install it with: sudo apt install python3-pip python3-venv', file=sys.stderr)
+    if os.name == 'nt':
+        print('Please install Python from https://www.python.org/ and ensure pip is included.', file=sys.stderr)
+    else:
+        print('On Debian/Ubuntu, install it with: sudo apt install python3-pip python3-venv', file=sys.stderr)
 
 # Determine python command for subprocess calls
 python_cmd = 'python' if os.name == 'nt' else 'python3'
@@ -51,9 +58,9 @@ if os.name == 'nt':
     if pip_result.returncode != 0:
         print('WARNING: Failed to upgrade pip. pip may not be available in the virtual environment.', file=sys.stderr)
     path = {
-        'NODE_PYENV_PYTHON': f'{venvPath}/Scripts/python.exe',
-        'NODE_PYENV_PIP': f'{venvPath}/Scripts/pip.exe',
-        'NODE_PYENV_EXEC': f'{venvPath}/Scripts/'
+        'NODE_PYENV_PYTHON': 'Scripts/python.exe',
+        'NODE_PYENV_PIP': 'Scripts/pip.exe',
+        'NODE_PYENV_EXEC': 'Scripts/'
     }
 else:
     # Create venv; if ensurepip is missing, use --without-pip to avoid failure
@@ -69,9 +76,9 @@ else:
     if pip_result.returncode != 0:
         print('WARNING: Failed to upgrade pip in virtual environment.', file=sys.stderr)
     path = {
-        'NODE_PYENV_PYTHON': f'{venvPath}/bin/python',
-        'NODE_PYENV_PIP': f'{venvPath}/bin/pip',
-        'NODE_PYENV_EXEC': f'{venvPath}/bin/'
+        'NODE_PYENV_PYTHON': 'bin/python',
+        'NODE_PYENV_PIP': 'bin/pip',
+        'NODE_PYENV_EXEC': 'bin/'
     }
 
 with open(f'{venvPath}/path.json', 'w') as f:

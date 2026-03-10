@@ -34,7 +34,15 @@ You can access Node-RED messages like `print(msg['payload'])`.
 
 ![msg-property.png](./img/msg-property.png)
 
-You can also access flow and global objects like `print(node['flow']['payload'])`, `print(node['global']['payload'])`.
+You can also set values on the `msg` object directly from Python:  
+`msg['payload'] = 'hello'`, `msg['topic'] = 'my-topic'`.  
+These values will be passed to downstream nodes without using `print()`.  
+If `print()` output is present, it will override `msg['payload']`.
+
+You can also access flow and global objects like `print(node['flow']['payload'])`, `print(node['global']['payload'])`.  
+Values assigned to `node['flow']` and `node['global']` in Python are written back to the Node-RED context.
+
+> **Note:** `node['flow']` and `node['global']` are snapshots taken at the start of execution. Changes made by other nodes during execution are not visible to Python, and Python's changes are only written back when the process exits. In Continuous mode, this means real-time sharing with other nodes is not possible. If you need to share values in real time, use `print()` and write to context via a downstream function/change node.
 
 ![msg-property-flow-global.png](./img/msg-property-flow-global.png)
 
@@ -96,7 +104,7 @@ My article: Creating Nodes for Node-RED Part 1 (python-venv)
 <https://404background.com/en/programming/creating-nodes-1/>
 
 My article: python-venv node development history (2024)  
-<https://qiita.com/background/items/3244fc1b70cc454befef>  
+<https://qiita.com/background/items/3244fc1b70cc454befef>
 
 ### Nodes created based on this node
 
