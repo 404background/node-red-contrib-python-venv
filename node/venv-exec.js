@@ -89,7 +89,7 @@ module.exports = function (RED) {
           pythonProcess = child_process.spawn(execPath + ' ' + args, {
             shell: true,
           })
-          pythonProcess.on('error', (err) => {
+          pythonProcess.on('error', err => {
             node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
             node.error(err)
             if (done) done(err)
@@ -99,7 +99,7 @@ module.exports = function (RED) {
           node.status({
             fill: 'blue',
             shape: 'dot',
-            text: 'venv-exec.running-continuous'
+            text: 'venv-exec.running-continuous',
           })
 
           pythonProcess.stdout.on('data', chunk => {
@@ -116,7 +116,7 @@ module.exports = function (RED) {
               node.status({
                 fill: 'yellow',
                 shape: 'dot',
-                text: 'venv-exec.terminate-continuous'
+                text: 'venv-exec.terminate-continuous',
               })
               done()
               return

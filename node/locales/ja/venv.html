@@ -4,13 +4,17 @@
     Node-REDの他のノードからのメッセージは、<code>print(msg['payload'])</code>、<code>print(node['flow']['payload'])</code>、<code>print(node['global']['payload'])</code>のように取得できます。
   </p>
   <p>
-    Pythonから<code>msg</code>オブジェクトに値を代入することもできます。
-    例: <code>msg['payload'] = 'hello'</code>、<code>msg['topic'] = 'my-topic'</code>。
-    代入した値は後続のノードに反映されます。
-    同様に、フローコンテキストやグローバルコンテキストにも値を設定できます: <code>node['flow']['key'] = value</code>、<code>node['global']['key'] = value</code>。
+    Pythonから<code>msg</code>オブジェクトに値を代入することもできます。 例:
+    <code>msg['payload'] = 'hello'</code>、<code>msg['topic'] = 'my-topic'</code
+    >。 代入した値は後続のノードに反映されます。
+    同様に、フローコンテキストやグローバルコンテキストにも値を設定できます:
+    <code>node['flow']['key'] = value</code>、<code
+      >node['global']['key'] = value</code
+    >。
   </p>
   <p>
-    <code>print()</code>による出力がある場合、<code>msg['payload']</code>は出力内容で上書きされます。
+    <code>print()</code
+    >による出力がある場合、<code>msg['payload']</code>は出力内容で上書きされます。
   </p>
   <h3>連続実行</h3>
   <h4>連続実行が有効でない場合：</h4>

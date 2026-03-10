@@ -92,7 +92,7 @@ module.exports = function (RED) {
       })
 
       const pipProcess = child_process.spawn(pipPath, args)
-      pipProcess.on('error', (err) => {
+      pipProcess.on('error', err => {
         node.status({ fill: 'red', shape: 'dot', text: 'pip.error' })
         if (done) {
           done(err)

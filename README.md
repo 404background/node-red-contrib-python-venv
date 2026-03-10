@@ -102,7 +102,7 @@ My article: Creating Nodes for Node-RED Part 1 (python-venv)
 <https://404background.com/en/programming/creating-nodes-1/>
 
 My article: python-venv node development history (2024)  
-<https://qiita.com/background/items/3244fc1b70cc454befef>  
+<https://qiita.com/background/items/3244fc1b70cc454befef>
 
 ### Nodes created based on this node
 
