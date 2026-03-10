@@ -30,4 +30,16 @@
     <code>node['global']</code>
     in Python are reflected when the process exits.
   </p>
+  <p>
+    <b>Important:</b> <code>node['flow']</code> and
+    <code>node['global']</code> are snapshots taken at the start of execution.
+    Changes made by other nodes during execution are not visible to Python, and
+    Python's changes are not visible to other nodes until the process exits.
+    <b
+      >In Continuous mode, since the process runs for a long time, real-time
+      sharing of flow/global context with other nodes is not possible.</b
+    >
+    If you need to share values in real time, use <code>print()</code> and write
+    to context via a downstream function/change node.
+  </p>
 </script>

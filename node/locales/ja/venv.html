@@ -28,4 +28,16 @@
     Pythonで<code>msg</code>、<code>node['flow']</code>、<code>node['global']</code>に代入した値は、
     プロセス終了時に反映されます。
   </p>
+  <p>
+    <b>重要:</b>
+    <code>node['flow']</code
+    >と<code>node['global']</code>は実行開始時のスナップショットです。
+    実行中に他のノードが行った変更はPythonからは見えず、
+    Pythonでの変更も他のノードにはプロセス終了まで反映されません。
+    <b
+      >連続実行モードではプロセスが長時間動作するため、flow/globalコンテキストの他ノードとのリアルタイム共有はできません。</b
+    >
+    リアルタイムで値を共有したい場合は、<code>print()</code>で出力し、
+    後続のfunction/changeノードでコンテキストに書き込んでください。
+  </p>
 </script>

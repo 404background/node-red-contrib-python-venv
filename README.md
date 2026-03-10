@@ -42,6 +42,8 @@ If `print()` output is present, it will override `msg['payload']`.
 You can also access flow and global objects like `print(node['flow']['payload'])`, `print(node['global']['payload'])`.  
 Values assigned to `node['flow']` and `node['global']` in Python are written back to the Node-RED context.
 
+> **Note:** `node['flow']` and `node['global']` are snapshots taken at the start of execution. Changes made by other nodes during execution are not visible to Python, and Python's changes are only written back when the process exits. In Continuous mode, this means real-time sharing with other nodes is not possible. If you need to share values in real time, use `print()` and write to context via a downstream function/change node.
+
 ![msg-property-flow-global.png](./img/msg-property-flow-global.png)
 
 The number of running nodes is displayed in the status.
