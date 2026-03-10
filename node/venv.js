@@ -47,7 +47,15 @@ module.exports = function (RED) {
       return
     }
     const json = fs.readFileSync(jsonPath)
-    const pythonPath = JSON.parse(json).NODE_PYENV_PYTHON
+    const rawPythonPath = JSON.parse(json).NODE_PYENV_PYTHON
+    let pythonPath = path.isAbsolute(rawPythonPath)
+      ? rawPythonPath
+      : path.join(venvDir, rawPythonPath)
+    if (!fs.existsSync(pythonPath)) {
+      const defaultRel =
+        process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'
+      pythonPath = path.join(venvDir, defaultRel)
+    }
 
     const continuous = config.continuous || false
 
@@ -131,11 +139,16 @@ module.exports = function (RED) {
       const usesFlowContext = flowRegex.test(code)
       const usesGlobalContext = globalRegex.test(code)
 
+      // Keep original snapshots for comparison on writeback
+      let originalFlowSnapshot = '{}'
+      let originalGlobalSnapshot = '{}'
+
       if (usesFlowContext) {
         const flowData = flowContext.keys().reduce((obj, key) => {
           obj[key] = flowContext.get(key)
           return obj
         }, {})
+        originalFlowSnapshot = JSON.stringify(flowData)
         if (Object.keys(flowData).length > 0) {
           fs.writeFileSync(tempFlowPath, JSON.stringify(flowData), {
             encoding: 'utf-8',
@@ -151,6 +164,7 @@ module.exports = function (RED) {
           obj[key] = globalContext.get(key)
           return obj
         }, {})
+        originalGlobalSnapshot = JSON.stringify(globalData)
         if (Object.keys(globalData).length > 0) {
           fs.writeFileSync(tempGlobalPath, JSON.stringify(globalData), {
             encoding: 'utf-8',
@@ -272,15 +286,18 @@ module.exports = function (RED) {
             /* ignore read errors */
           }
 
-          // Read back flow context set in Python
+          // Read back flow context set in Python (only changed keys)
           if (usesFlowContext) {
             try {
               if (fs.existsSync(tempFlowOutputPath)) {
                 const flowData = JSON.parse(
                   fs.readFileSync(tempFlowOutputPath, 'utf-8')
                 )
+                const origFlow = JSON.parse(originalFlowSnapshot)
                 for (const [key, value] of Object.entries(flowData)) {
-                  flowContext.set(key, value)
+                  if (JSON.stringify(value) !== JSON.stringify(origFlow[key])) {
+                    flowContext.set(key, value)
+                  }
                 }
               }
             } catch (e) {
@@ -288,15 +305,20 @@ module.exports = function (RED) {
             }
           }
 
-          // Read back global context set in Python
+          // Read back global context set in Python (only changed keys)
           if (usesGlobalContext) {
             try {
               if (fs.existsSync(tempGlobalOutputPath)) {
                 const globalData = JSON.parse(
                   fs.readFileSync(tempGlobalOutputPath, 'utf-8')
                 )
+                const origGlobal = JSON.parse(originalGlobalSnapshot)
                 for (const [key, value] of Object.entries(globalData)) {
-                  globalContext.set(key, value)
+                  if (
+                    JSON.stringify(value) !== JSON.stringify(origGlobal[key])
+                  ) {
+                    globalContext.set(key, value)
+                  }
                 }
               }
             } catch (e) {

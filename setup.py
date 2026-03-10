@@ -58,9 +58,9 @@ if os.name == 'nt':
     if pip_result.returncode != 0:
         print('WARNING: Failed to upgrade pip. pip may not be available in the virtual environment.', file=sys.stderr)
     path = {
-        'NODE_PYENV_PYTHON': f'{venvPath}/Scripts/python.exe',
-        'NODE_PYENV_PIP': f'{venvPath}/Scripts/pip.exe',
-        'NODE_PYENV_EXEC': f'{venvPath}/Scripts/'
+        'NODE_PYENV_PYTHON': 'Scripts/python.exe',
+        'NODE_PYENV_PIP': 'Scripts/pip.exe',
+        'NODE_PYENV_EXEC': 'Scripts/'
     }
 else:
     # Create venv; if ensurepip is missing, use --without-pip to avoid failure
@@ -76,9 +76,9 @@ else:
     if pip_result.returncode != 0:
         print('WARNING: Failed to upgrade pip in virtual environment.', file=sys.stderr)
     path = {
-        'NODE_PYENV_PYTHON': f'{venvPath}/bin/python',
-        'NODE_PYENV_PIP': f'{venvPath}/bin/pip',
-        'NODE_PYENV_EXEC': f'{venvPath}/bin/'
+        'NODE_PYENV_PYTHON': 'bin/python',
+        'NODE_PYENV_PIP': 'bin/pip',
+        'NODE_PYENV_EXEC': 'bin/'
     }
 
 with open(f'{venvPath}/path.json', 'w') as f:

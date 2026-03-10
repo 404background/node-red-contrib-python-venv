@@ -27,7 +27,17 @@ module.exports = function (RED) {
       return
     }
     const json = fs.readFileSync(jsonPath)
-    const venvExec = JSON.parse(json).NODE_PYENV_EXEC
+    const rawExecPath = JSON.parse(json).NODE_PYENV_EXEC
+    const venvDir = path.isAbsolute(this.venvconfig.venvname)
+      ? this.venvconfig.venvname
+      : path.join(path.dirname(__dirname), this.venvconfig.venvname)
+    let venvExec = path.isAbsolute(rawExecPath)
+      ? rawExecPath
+      : path.join(venvDir, rawExecPath)
+    if (!fs.existsSync(venvExec)) {
+      const defaultRel = process.platform === 'win32' ? 'Scripts/' : 'bin/'
+      venvExec = path.join(venvDir, defaultRel)
+    }
     let execPath = ''
     let pythonProcess = null
     node.status({ fill: 'green', shape: 'dot', text: 'venv-exec.standby' })

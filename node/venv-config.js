@@ -23,6 +23,8 @@ module.exports = function (RED) {
     // On Windows, avoid shell: true to prevent cmd.exe from splitting -c arguments on spaces.
     // On Linux/macOS, use shell: true so PATH is resolved correctly (e.g. when running as a service).
     const useShell = process.platform !== 'win32'
+    // When using shell, wrap -c code in double quotes to prevent word splitting
+    const shellQuote = code => (useShell ? `"${code}"` : code)
     if (process.platform === 'win32') {
       if (version && version !== '' && version !== 'default') {
         pythonCmd = `py -${version}`
@@ -57,7 +59,7 @@ module.exports = function (RED) {
     try {
       const venvCheck = spawnSync(
         spawnCmd,
-        [...spawnArgs, '-c', 'import venv'],
+        [...spawnArgs, '-c', shellQuote('import venv, ensurepip')],
         { shell: useShell, timeout: 10000 }
       )
       if (venvCheck.status === 0) {
@@ -81,28 +83,18 @@ module.exports = function (RED) {
     try {
       const pipCheck = spawnSync(
         spawnCmd,
-        [...spawnArgs, '-c', 'import ensurepip'],
+        [...spawnArgs, '-c', shellQuote('import ensurepip')],
         { shell: useShell, timeout: 10000 }
       )
       if (pipCheck.status === 0) {
         result.pip = true
       } else {
-        // Also check if pip itself is available
-        const pipDirect = spawnSync(
-          spawnCmd,
-          [...spawnArgs, '-m', 'pip', '--version'],
-          { shell: useShell, timeout: 10000 }
+        result.details.push(
+          'pip is not available.' +
+            (process.platform === 'win32'
+              ? ' Please install Python from https://www.python.org/ and ensure pip is included.'
+              : ' On Debian/Ubuntu, install it with: sudo apt install python3-pip')
         )
-        if (pipDirect.status === 0) {
-          result.pip = true
-        } else {
-          result.details.push(
-            'pip is not available.' +
-              (process.platform === 'win32'
-                ? ' Please install Python from https://www.python.org/ and ensure pip is included.'
-                : ' On Debian/Ubuntu, install it with: sudo apt install python3-pip')
-          )
-        }
       }
     } catch (e) {
       result.details.push('pip is not available.')
