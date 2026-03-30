@@ -110,7 +110,9 @@ module.exports = function (RED) {
     const node = this
 
     const setupPath = path.join(path.dirname(__dirname), 'setup.py')
-    let venvPath = path.join(path.dirname(__dirname), this.venvname)
+    let venvPath = path.isAbsolute(this.venvname)
+      ? this.venvname
+      : path.join(path.dirname(__dirname), this.venvname)
 
     // Check environment before attempting to create venv
     const envCheck = checkPythonEnvironment(this.version)
@@ -165,7 +167,34 @@ module.exports = function (RED) {
 
     this.on('close', function (removed, done) {
       if (removed) {
-        fs.rmSync(venvPath, { recursive: true, force: true })
+        const markerFile = path.join(venvPath, '.node-red-venv-created')
+        const hasPyvenvCfg = fs.existsSync(path.join(venvPath, 'pyvenv.cfg'))
+        const depth = path.resolve(venvPath).split(path.sep).filter(Boolean).length
+        if (fs.existsSync(markerFile) && hasPyvenvCfg && depth >= 2) {
+          // Only delete known venv-related files and directories
+          const venvEntries = [
+            'Scripts', 'bin',
+            'Lib', 'lib', 'lib64',
+            'Include', 'include',
+            'share',
+            'pyvenv.cfg',
+            'path.json',
+            '.node-red-venv-created',
+            '.gitignore',
+          ]
+          for (const entry of venvEntries) {
+            const entryPath = path.join(venvPath, entry)
+            if (fs.existsSync(entryPath)) {
+              fs.rmSync(entryPath, { recursive: true, force: true })
+            }
+          }
+          // Remove the venv directory only if it is now empty
+          try {
+            fs.rmdirSync(venvPath)
+          } catch (_e) {
+            // Directory not empty — leave it as is
+          }
+        }
       }
       done()
     })
