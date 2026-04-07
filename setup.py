@@ -14,7 +14,32 @@ else:
     venvPath = f'{absDir}/{venvName}'
 
 if os.path.isdir(venvPath):
-    print(f'{venvName} already exists.')
+    # If path.json already exists, nothing to do
+    pathJsonFile = os.path.join(venvPath, 'path.json')
+    if os.path.isfile(pathJsonFile):
+        print(f'{venvName} already exists.')
+        sys.exit()
+
+    # Existing directory without path.json — check if it's a valid venv before adopting
+    if not os.path.isfile(os.path.join(venvPath, 'pyvenv.cfg')):
+        print(f'ERROR: {venvName} exists but is not a Python virtual environment (pyvenv.cfg not found).', file=sys.stderr)
+        sys.exit(1)
+
+    print(f'{venvName} already exists. Creating path.json for existing environment.')
+    if os.name == 'nt':
+        path = {
+            'NODE_PYENV_PYTHON': 'Scripts/python.exe',
+            'NODE_PYENV_PIP': 'Scripts/pip.exe',
+            'NODE_PYENV_EXEC': 'Scripts/'
+        }
+    else:
+        path = {
+            'NODE_PYENV_PYTHON': 'bin/python',
+            'NODE_PYENV_PIP': 'bin/pip',
+            'NODE_PYENV_EXEC': 'bin/'
+        }
+    with open(pathJsonFile, 'w') as f:
+        json.dump(path, f, indent=4)
     sys.exit()
 
 # Check if venv module is available
@@ -83,3 +108,7 @@ else:
 
 with open(f'{venvPath}/path.json', 'w') as f:
     json.dump(path, f, indent=4)
+
+# Marker to indicate this venv was created by this node (used for safe cleanup)
+with open(os.path.join(venvPath, '.node-red-venv-created'), 'w') as f:
+    f.write('')
