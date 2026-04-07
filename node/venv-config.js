@@ -177,6 +177,7 @@ module.exports = function (RED) {
             'Lib', 'lib', 'lib64',
             'Include', 'include',
             'share',
+            'Temp',
             'pyvenv.cfg',
             'path.json',
             '.node-red-venv-created',
@@ -187,6 +188,17 @@ module.exports = function (RED) {
             if (fs.existsSync(entryPath)) {
               fs.rmSync(entryPath, { recursive: true, force: true })
             }
+          }
+          // Remove .py script files created by venv nodes (filename contains a node ID)
+          try {
+            const remaining = fs.readdirSync(venvPath)
+            for (const file of remaining) {
+              if (/^.+-[0-9a-f]{8,}\.py$/.test(file)) {
+                fs.rmSync(path.join(venvPath, file), { force: true })
+              }
+            }
+          } catch (_e) {
+            // ignore read errors
           }
           // Remove the venv directory only if it is now empty
           try {

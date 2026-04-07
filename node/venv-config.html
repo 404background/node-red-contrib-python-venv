@@ -115,6 +115,15 @@
         }
       }, 0)
     },
+    oneditdelete: function () {
+      const node = this
+      if (node._venvAbsolutePath) {
+        RED.notify(
+          node._('venv-config.alert-delete', { path: node._venvAbsolutePath }),
+          { type: 'warning', timeout: 8000 }
+        )
+      }
+    },
     oneditprepare: function () {
       const node = this
       const venvname = $('#node-config-input-venvname').val()
@@ -122,6 +131,7 @@
       $.getJSON('venvconfig/path', { venvname: venvname })
         .done(function (data) {
           $('#venv-config-path').text(data.path)
+          node._venvAbsolutePath = data.path
         })
         .fail(function () {
           $('#venv-config-path').text('Path information not available')
@@ -132,6 +142,7 @@
         $.getJSON('venvconfig/path', { venvname: newVenvname })
           .done(function (data) {
             $('#venv-config-path').text(data.path)
+            node._venvAbsolutePath = data.path
           })
           .fail(function () {
             $('#venv-config-path').text('Path information not available')
