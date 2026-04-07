@@ -2,6 +2,7 @@
 
 pyenv/
 path.json
+.claude/
 
 # Node
 
