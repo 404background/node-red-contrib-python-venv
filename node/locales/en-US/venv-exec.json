@@ -10,6 +10,9 @@
     "terminate-continuous": "Terminated",
     "executing": "Executing",
     "error": "Error",
-    "notFound": "File not found"
+    "notFound": "File not found",
+    "output-stdout": "stdout",
+    "output-stderr": "stderr",
+    "output-code": "return code"
   }
 }

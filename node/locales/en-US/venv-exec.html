@@ -12,4 +12,27 @@
   <p>Specify the name of that file when you execute it.</p>
   <h4>Execute:</h4>
   <p>Execute the executable file. Arguments can also be specified.</p>
+  <h3>Outputs</h3>
+  <p>Like the core <code>exec</code> node, this node has three outputs:</p>
+  <ol class="node-ports">
+    <li>
+      <b>stdout</b> &mdash; <code>msg.payload</code> is the standard output.
+      Nothing is sent here when the script fails, so a message on this output
+      still means the script succeeded.
+    </li>
+    <li>
+      <b>stderr</b> &mdash; <code>msg.payload</code> is the standard error. Sent
+      only when the script wrote something to stderr, including when it failed,
+      so the traceback can be handled in the flow.
+    </li>
+    <li>
+      <b>return code</b> &mdash; <code>msg.payload</code> is an object such as
+      <code>{ code: 0 }</code>, with a <code>signal</code> property added when
+      the process was killed. Sent every time the process exits.
+    </li>
+  </ol>
+  <p>
+    A failing script is still reported as a node error, so existing
+    <code>catch</code> nodes keep working.
+  </p>
 </script>

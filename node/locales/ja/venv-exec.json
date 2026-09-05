@@ -10,6 +10,9 @@
     "terminate-continuous": "連続実行終了",
     "executing": "実行中",
     "error": "エラー",
-    "notFound": "ファイルが見つかりません"
+    "notFound": "ファイルが見つかりません",
+    "output-stdout": "標準出力",
+    "output-stderr": "標準エラー出力",
+    "output-code": "終了コード"
   }
 }

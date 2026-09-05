@@ -251,11 +251,18 @@ module.exports = function (RED) {
         finish(err)
       })
 
+      /** Clone the incoming message and put `payload` on it. */
+      const derivedMessage = payload => {
+        const copy = RED.util.cloneMessage(msg)
+        copy.payload = payload
+        return copy
+      }
+
       child.stdout.on('data', chunk => {
         stdoutData += chunk.toString('utf8')
         // In continuous mode, forward the output as soon as a line is complete
         if (continuous && stdoutData.endsWith('\n')) {
-          send({ ...msg, payload: stdoutData })
+          send([derivedMessage(stdoutData), null, null])
           stdoutData = ''
         }
       })
@@ -264,9 +271,9 @@ module.exports = function (RED) {
         const err = chunk.toString('utf8')
         stderrData += err
         rollingStderrData += err
-        // In continuous mode, report errors as soon as a line is complete
+        // In continuous mode, forward stderr as soon as a line is complete
         if (continuous && rollingStderrData.endsWith('\n')) {
-          node.error(rollingStderrData, msg)
+          send([null, derivedMessage(rollingStderrData), null])
           rollingStderrData = ''
         }
       })
@@ -276,16 +283,8 @@ module.exports = function (RED) {
           runningScripts--
         }
 
-        // A null signal with a non-zero code means the script itself failed.
-        if (signal === null && exitCode !== 0) {
-          node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
-          finish(
-            `Error ${exitCode}${stderrData === '' ? '' : `: ${stderrData}`}`
-          )
-          return
-        }
-
-        // Read back msg properties set in Python
+        // Read back msg properties set in Python. When the script aborted, the
+        // write back never ran and there is simply nothing to read.
         const outputMsg = readJsonFileOrNull(io.msgOut)
         if (outputMsg !== null && typeof outputMsg === 'object') {
           Object.assign(msg, outputMsg)
@@ -304,23 +303,25 @@ module.exports = function (RED) {
           }
         }
 
-        if (!continuous) {
-          // Backward compat: stdout overrides msg.payload if non-empty
-          if (stdoutData) {
-            msg.payload = stdoutData
-          }
-          send(msg)
-          updateStatusAfterRun()
-        } else {
-          // Flush output that was not newline terminated
-          if (stdoutData) {
-            send({ ...msg, payload: stdoutData })
-            stdoutData = ''
-          }
-          if (rollingStderrData) {
-            node.error(rollingStderrData, msg)
-            rollingStderrData = ''
-          }
+        // Third output always reports how the process ended, like the exec node.
+        const exitPayload = { code: exitCode }
+        if (signal !== null) {
+          exitPayload.signal = signal
+        }
+        const exitMessage = derivedMessage(exitPayload)
+
+        // Flush output that was not newline terminated
+        const stderrMessage =
+          rollingStderrData === '' ? null : derivedMessage(rollingStderrData)
+        rollingStderrData = ''
+
+        if (continuous) {
+          send([
+            stdoutData === '' ? null : derivedMessage(stdoutData),
+            stderrMessage,
+            exitMessage,
+          ])
+          stdoutData = ''
           node.status(
             child.killed
               ? {
@@ -330,7 +331,28 @@ module.exports = function (RED) {
                 }
               : { fill: 'green', shape: 'dot', text: 'venv.standby' }
           )
+          finish()
+          return
         }
+
+        // A null signal with a non-zero code means the script itself failed.
+        if (signal === null && exitCode !== 0) {
+          node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
+          // The first output stays quiet on failure so that flows which treat
+          // an incoming message as success keep working.
+          send([null, stderrMessage, exitMessage])
+          finish(
+            `Error ${exitCode}${stderrData === '' ? '' : `: ${stderrData}`}`
+          )
+          return
+        }
+
+        // Backward compat: stdout overrides msg.payload if non-empty
+        if (stdoutData) {
+          msg.payload = stdoutData
+        }
+        send([msg, stderrMessage, exitMessage])
+        updateStatusAfterRun()
 
         finish()
       })

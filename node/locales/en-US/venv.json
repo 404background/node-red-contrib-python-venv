@@ -8,6 +8,9 @@
     "standby": "Standby",
     "running-continuous": "Running Continuous",
     "error": "Error",
-    "terminate-continuous": "Terminated"
+    "terminate-continuous": "Terminated",
+    "output-stdout": "stdout",
+    "output-stderr": "stderr",
+    "output-code": "return code"
   }
 }

@@ -8,6 +8,9 @@
     "standby": "待機",
     "running-continuous": "連続実行中",
     "error": "エラー",
-    "terminate-continuous": "連続実行終了"
+    "terminate-continuous": "連続実行終了",
+    "output-stdout": "標準出力",
+    "output-stderr": "標準エラー出力",
+    "output-code": "終了コード"
   }
 }

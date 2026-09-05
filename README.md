@@ -52,6 +52,20 @@ The number of running nodes is displayed in the status.
 
 The venv node stops execution when `msg.kill` or `msg.terminate` is set to `true`, aligning its behavior with Node-RED's `exec` node.
 
+#### Outputs
+
+Like Node-RED's `exec` node, the venv node has three outputs:
+
+| #   | Output      | `msg.payload`                                                                                                              |
+| --- | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
+| 1   | stdout      | Standard output. Not sent when the script fails, so a message here still means success.                                    |
+| 2   | stderr      | Standard error. Sent only when the script wrote to stderr, including on failure, so tracebacks can be handled in the flow. |
+| 3   | return code | An object such as `{ code: 0 }`, with `signal` added when the process was killed. Sent every time the process exits.       |
+
+In Continuous mode, stdout and stderr are streamed line by line to outputs 1 and 2, and output 3 fires when the process exits.
+
+A failing script is still reported as a node error, so existing `catch` nodes keep working.
+
 ### pip node
 
 pip(.exe) is in the ./pyenv/Scripts/pip.exe or Python virtual environment you have added.
@@ -81,6 +95,10 @@ Then you can execute it with arguments in Execute mode.
 > **Note:** Arguments are split on whitespace and passed to the executable directly, without a shell. Wrap a value in single or double quotes to keep spaces inside it (for example `-c "print(1 + 1)"`). Shell features such as pipes and redirection are not available.
 
 The venv-exec node stops execution when either `msg.kill` or `msg.terminate` is set to `true`, aligning its behavior with Node-RED's `exec` node.
+
+#### Outputs
+
+The venv-exec node has the same three outputs as the venv node: stdout, stderr and the return code.
 
 ### venv-config (config node)
 

@@ -149,21 +149,39 @@ module.exports = function (RED) {
           stderrData += chunk.toString()
         })
 
+        /** Clone the incoming message and put `payload` on it. */
+        const derivedMessage = payload => {
+          const copy = RED.util.cloneMessage(msg)
+          copy.payload = payload
+          return copy
+        }
+
         execProcess.on('exit', (exitCode, signal) => {
+          // Third output always reports how the process ended, like the exec node.
+          const exitPayload = { code: exitCode }
+          if (signal !== null) {
+            exitPayload.signal = signal
+          }
+          const exitMessage = derivedMessage(exitPayload)
+          const stderrMessage =
+            stderrData === '' ? null : derivedMessage(stderrData)
+
           if (execProcess.terminatedByRequest) {
             node.status({
               fill: 'yellow',
               shape: 'dot',
               text: 'venv-exec.terminate-continuous',
             })
+            send([null, stderrMessage, exitMessage])
             finish()
             return
           }
 
           if (signal === null && exitCode !== 0) {
             node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
-            msg.payload = stderrData
-            send(msg)
+            // The first output stays quiet on failure so that flows which treat
+            // an incoming message as success keep working.
+            send([null, stderrMessage, exitMessage])
             finish(
               `Error ${exitCode}${stderrData === '' ? '' : `: ${stderrData}`}`
             )
@@ -176,7 +194,7 @@ module.exports = function (RED) {
             text: 'venv-exec.standby',
           })
           msg.payload = stdoutData
-          send(msg)
+          send([msg, stderrMessage, exitMessage])
           finish()
         })
       })

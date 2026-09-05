@@ -9,7 +9,14 @@
       continuous: { value: false },
     },
     inputs: 1,
-    outputs: 1,
+    outputs: 3,
+    outputLabels: function (index) {
+      return [
+        this._('venv.output-stdout'),
+        this._('venv.output-stderr'),
+        this._('venv.output-code'),
+      ][index]
+    },
     icon: 'function.svg',
     label: function () {
       return this.name || 'venv'

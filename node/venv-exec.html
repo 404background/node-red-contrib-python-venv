@@ -10,7 +10,14 @@
       arguments: { value: '' },
     },
     inputs: 1,
-    outputs: 1,
+    outputs: 3,
+    outputLabels: function (index) {
+      return [
+        this._('venv-exec.output-stdout'),
+        this._('venv-exec.output-stderr'),
+        this._('venv-exec.output-code'),
+      ][index]
+    },
     icon: 'cog.svg',
     label: function () {
       return this.name || 'exec'
