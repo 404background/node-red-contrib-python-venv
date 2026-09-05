@@ -4,9 +4,31 @@
     can also set it with an absolute path.
   </p>
   <p>
-    When this node is deleted, the virtual environment with that name is also
-    deleted. If you add a node with the same venv Name, only one virtual
-    environment will be created.
+    If you add a node with the same venv Name, only one virtual environment will
+    be created.
+  </p>
+  <h3>Using an existing virtual environment</h3>
+  <p>
+    If the venv Name points at a directory that already is a Python virtual
+    environment (it contains <code>pyvenv.cfg</code>), that environment is
+    adopted instead of a new one being created. Only a small
+    <code>path.json</code> file is added to it, so environments created outside
+    of Node-RED can be used as they are. If the directory exists but is not a
+    virtual environment, nothing is created and an error is reported.
+  </p>
+  <h3>Deleting this node</h3>
+  <p>
+    When this node is deleted, the virtual environment is removed
+    <b>only if this node created it</b>, which is recorded by a marker file
+    written at creation time. An environment adopted from outside is never
+    deleted.
+  </p>
+  <p>
+    Even then, only the entries a virtual environment is made of are removed,
+    together with the <code>.py</code> files the venv nodes generated. Any other
+    file you put in the folder is left untouched, and the folder itself is only
+    removed once it is empty. The absolute path that will be affected is shown
+    below.
   </p>
   <h3>Prerequisites</h3>
   <p>
@@ -25,9 +47,13 @@
       version may not include venv).
     </li>
   </ul>
-  <h3>For Windows</h3>
+  <h3>Python version</h3>
   <p>
-    You can specify the Python version. Please install the Python version you
-    want to use in advance.
+    You can specify the Python version to create the environment with. On
+    Windows the requested version is selected through the
+    <code>py</code> launcher (<code>py -3.11</code>); on Linux and macOS the
+    versioned interpreter is used (<code>python3.11</code>), falling back to the
+    default <code>python3</code> with a warning when it is not installed. Please
+    install the Python version you want to use in advance.
   </p>
 </script>

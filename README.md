@@ -16,6 +16,15 @@ With this node, you can run Python in Python's virtual environments in Node-RED.
 When you install this node, python virtual environment (pyenv folder) is also created.  
 You can run python(.exe) or pip(.exe) in that environment.
 
+## Requirements
+
+Python 3 with the `venv` and `pip` modules must be available on the system.
+
+- **Debian/Ubuntu:** `sudo apt install python3-venv python3-pip`
+- **Windows:** install Python from [python.org](https://www.python.org/) (the Microsoft Store version may not include `venv`)
+
+If Python cannot be found while the node is being installed, the installation still succeeds and the virtual environment is created the first time you deploy a venv configuration node. The configuration dialog shows a warning when something is missing.
+
 Sample flows are in the examples folder.  
 ![sample-flow.png](./img/sample-flow.png)
 
@@ -104,14 +113,44 @@ The venv-exec node has the same three outputs as the venv node: stdout, stderr a
 
 You can create and switch between multiple Python virtual environments.  
 You need to add and set the name of the virtual environment.  
-You can also specify the Python version **only in Windows**.  
-![venv-config.png](./img/venv-config.png)
-
-When a configuration node is deleted, the virtual environment with that name is also deleted.  
 If you add a node with the same venv Name, only one virtual environment will be created.
+
+![venv-config.png](./img/venv-config.png)
 
 The nodes can be executed by creating virtual environments even if the venv Name contains spaces or is an absolute path.  
 ![venv-config-abspath.png](./img/venv-config-abspath.png)
+
+#### Python version
+
+You can specify the Python version to create the environment with.
+
+- **Windows:** the requested version is selected through the `py` launcher (`py -3.11`).
+- **Linux/macOS:** the versioned interpreter is used (`python3.11`). If it is not installed, the default `python3` is used instead and a warning is shown.
+
+Install the Python version you want to use in advance.
+
+#### Using an existing virtual environment
+
+If the venv Name points at a directory that is already a Python virtual environment (it contains `pyvenv.cfg`), that environment is adopted instead of a new one being created. Only a small `path.json` file is added to it, so environments created outside of Node-RED can be used as they are.
+
+If the directory exists but is not a virtual environment, nothing is created and an error is reported.
+
+#### Deleting a configuration node
+
+When a configuration node is deleted, the virtual environment is removed **only if this node created it**. A marker file (`.node-red-venv-created`) written at creation time is what distinguishes the two, so an environment you adopted from outside is never deleted.
+
+Even then, only the entries a virtual environment is made of are removed (`Scripts`/`bin`, `Lib`/`lib`, `Include`/`include`, `share`, `Temp`, `pyvenv.cfg`, `path.json`) together with the `.py` files the venv nodes generated. Any other file you put in the folder is left untouched, and the folder itself is only removed once it is empty.
+
+The absolute path that will be affected is shown in the configuration dialog, and a warning notification is displayed when you delete the node.
+
+## Development
+
+```sh
+npm install     # install dev dependencies
+npm test        # run the unit tests
+npm run lint    # run ESLint
+npm run prettier:check
+```
 
 ## Other Links
 

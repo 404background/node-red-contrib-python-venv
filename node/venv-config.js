@@ -44,6 +44,16 @@ function resolvePythonLauncher(version) {
     }
     return { command: 'python', args: [], label: 'python' }
   }
+  if (hasVersion) {
+    // There is no launcher on POSIX, so a version maps to the versioned
+    // interpreter name. setup.py falls back the same way when it is missing.
+    return {
+      command: `python${version}`,
+      args: [],
+      label: `python${version}`,
+      versioned: true,
+    }
+  }
   return { command: 'python3', args: [], label: 'python3' }
 }
 
@@ -61,8 +71,7 @@ function checkPythonEnvironment(version) {
     details: [],
   }
 
-  const launcher = resolvePythonLauncher(version)
-  result.pythonCmd = launcher.label
+  let launcher = resolvePythonLauncher(version)
 
   // On Windows, avoid shell: true to prevent cmd.exe from splitting -c arguments on spaces.
   // On Linux/macOS, use shell: true so PATH is resolved correctly (e.g. when running as a service).
@@ -81,7 +90,18 @@ function checkPythonEnvironment(version) {
     }
   }
 
-  const versionCheck = run(['--version'])
+  let versionCheck = run(['--version'])
+  if ((!versionCheck || versionCheck.status !== 0) && launcher.versioned) {
+    // Report the same fallback setup.py performs rather than claiming that
+    // Python is missing altogether.
+    result.details.push(
+      `${launcher.label} was not found. The default interpreter will be used instead.`
+    )
+    launcher = resolvePythonLauncher('')
+    versionCheck = run(['--version'])
+  }
+  result.pythonCmd = launcher.label
+
   if (!versionCheck || versionCheck.status !== 0) {
     result.details.push(`Python not found (command: ${launcher.label})`)
     return result
