@@ -1,100 +1,83 @@
+const child_process = require('child_process')
+const { readVenvPaths } = require('./lib/venv-paths')
+const { splitPackageNames } = require('./lib/command-args')
+
 module.exports = function (RED) {
   function Pip(config) {
     RED.nodes.createNode(this, config)
     const node = this
-    this.venvconfig = RED.nodes.getNode(config.venvconfig)
+    node.venvconfig = RED.nodes.getNode(config.venvconfig)
 
-    const path = require('path')
-    const fs = require('fs')
-
-    if (!this.venvconfig) {
-      node.send({ payload: 'Missing virtual environment configuration' })
-      return
-    }
-
-    let jsonPath = path.join(
-      path.dirname(__dirname),
-      this.venvconfig.venvname,
-      'path.json'
-    )
-    if (path.isAbsolute(this.venvconfig.venvname)) {
-      jsonPath = path.join(this.venvconfig.venvname, 'path.json')
-    }
-    if (!fs.existsSync(jsonPath)) {
+    if (!node.venvconfig) {
       node.status({ fill: 'red', shape: 'dot', text: 'pip.error' })
-      node.error('Virtual environment is not ready. path.json not found.')
+      node.error('Missing virtual environment configuration')
       return
     }
-    const json = fs.readFileSync(jsonPath)
-    const rawPipPath = JSON.parse(json).NODE_PYENV_PIP
-    const venvDir = path.isAbsolute(this.venvconfig.venvname)
-      ? this.venvconfig.venvname
-      : path.join(path.dirname(__dirname), this.venvconfig.venvname)
-    let pipPath = path.isAbsolute(rawPipPath)
-      ? rawPipPath
-      : path.join(venvDir, rawPipPath)
-    if (!fs.existsSync(pipPath)) {
-      const defaultRel =
-        process.platform === 'win32' ? 'Scripts/pip.exe' : 'bin/pip'
-      pipPath = path.join(venvDir, defaultRel)
-    }
-    const child_process = require('child_process')
 
+    let venvPaths
+    try {
+      venvPaths = readVenvPaths(node.venvconfig.venvname)
+    } catch (e) {
+      node.status({ fill: 'red', shape: 'dot', text: 'pip.error' })
+      node.error(e.message)
+      return
+    }
+
+    const pipPath = venvPaths.pip
     const tail = config.tail || false
+    const activeProcesses = new Set()
 
     node.on('input', function (msg, send, done) {
-      let argument = ''
-      let args = []
-      let stdoutData = ''
-      let stderrData = ''
-      let runningText = ''
+      // Node-RED 0.x compatibility
+      send = send || node.send.bind(node)
+      done =
+        done ||
+        function (err) {
+          if (err) {
+            node.error(err, msg)
+          }
+        }
 
+      let argument = ''
       if (typeof config.arg !== 'undefined' && config.arg !== '') {
         argument = String(config.arg)
       } else if (typeof msg.payload !== 'undefined' && msg.payload !== '') {
         argument = String(msg.payload)
-      } else {
-        argument = ''
       }
 
+      let args = []
+      let runningText = ''
       switch (config.action) {
         case 'install':
-          if (argument === '') {
+        case 'uninstall': {
+          const packages = splitPackageNames(argument)
+          if (packages.length === 0) {
             node.status({
               fill: 'red',
               shape: 'dot',
               text: 'pip.error-argument',
             })
-            node.error('No argument provided')
-          } else {
-            args = ['install', ...argument.split(' ')]
+            done('No argument provided')
+            return
           }
-          runningText = 'Installing '
+          args =
+            config.action === 'install'
+              ? ['install', ...packages]
+              : ['uninstall', '-y', ...packages]
+          runningText =
+            config.action === 'install' ? 'Installing ' : 'Uninstalling '
           break
-        case 'uninstall':
-          if (argument === '') {
-            node.status({
-              fill: 'red',
-              shape: 'dot',
-              text: 'pip.error-argument',
-            })
-            node.error('No argument provided')
-          } else {
-            args = ['uninstall', '-y', ...argument.split(' ')]
-          }
-          runningText = 'Uninstalling '
-          break
+        }
         case 'list':
           args = ['list']
           argument = ''
           runningText = 'Listing '
           break
         default:
-          args = []
-          break
+          node.status({ fill: 'red', shape: 'dot', text: 'pip.error' })
+          done(`Unknown pip command: ${config.action}`)
+          return
       }
-
-      if (args.length === 0) return
 
       node.status({
         fill: 'blue',
@@ -102,24 +85,34 @@ module.exports = function (RED) {
         text: runningText + argument,
       })
 
+      let stdoutData = ''
+      let stderrData = ''
+      let finished = false
+
       const pipProcess = child_process.spawn(pipPath, args)
+      activeProcesses.add(pipProcess)
+
+      // 'error' and 'close' can both fire; only the first one completes the message.
+      const finish = err => {
+        if (finished) {
+          return
+        }
+        finished = true
+        activeProcesses.delete(pipProcess)
+        done(err)
+      }
+
       pipProcess.on('error', err => {
         node.status({ fill: 'red', shape: 'dot', text: 'pip.error' })
-        if (done) {
-          done(err)
-        } else {
-          node.error(err)
-        }
+        finish(err)
       })
-
-      pipProcess.on('message', console.log)
 
       pipProcess.stdout.on('data', chunk => {
         stdoutData += chunk.toString()
 
+        // In sequential output mode, forward each completed line right away
         if (tail && stdoutData.endsWith('\n')) {
-          msg.payload = stdoutData
-          send(msg)
+          send({ ...msg, payload: stdoutData })
           stdoutData = ''
         }
       })
@@ -131,23 +124,29 @@ module.exports = function (RED) {
       pipProcess.on('close', exitCode => {
         if (exitCode !== 0) {
           node.status({ fill: 'red', shape: 'dot', text: 'pip.error' })
-          const err = `Error ${exitCode}${
-            stderrData === '' ? '' : `: ${stderrData}`
-          }`
-          if (done) {
-            done(err)
-          } else {
-            node.error(err)
-          }
-        } else {
-          msg.payload = stdoutData
-          node.send(msg)
-          if (done) {
-            done()
-          }
-          node.status({})
+          finish(
+            `Error ${exitCode}${stderrData === '' ? '' : `: ${stderrData}`}`
+          )
+          return
         }
+
+        // In tail mode only the trailing partial line is left to send
+        if (!tail || stdoutData !== '') {
+          msg.payload = stdoutData
+          send(msg)
+        }
+        node.status({})
+        finish()
       })
+    })
+
+    // Stop any pip process still running when the node is closed
+    node.on('close', function (_removed, done) {
+      for (const pipProcess of activeProcesses) {
+        pipProcess.kill()
+      }
+      activeProcesses.clear()
+      done()
     })
   }
   RED.nodes.registerType('pip', Pip)

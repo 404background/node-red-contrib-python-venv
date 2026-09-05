@@ -1,217 +1,202 @@
+const fs = require('fs')
+const path = require('path')
+const child_process = require('child_process')
+const { readVenvPaths } = require('./lib/venv-paths')
+const {
+  sanitizeBaseName,
+  usesFlowContext,
+  usesGlobalContext,
+  stringifyWithoutCircularReferences,
+  readContext,
+  writeChangedContext,
+  buildBootstrapScript,
+} = require('./lib/python-bridge')
+
+function removeFileQuietly(filePath) {
+  try {
+    fs.unlinkSync(filePath)
+  } catch (_e) {
+    // Missing or locked file: nothing to clean up.
+  }
+}
+
+function readJsonFileOrNull(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return null
+    }
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+  } catch (_e) {
+    return null
+  }
+}
+
 module.exports = function (RED) {
   function Venv(config) {
     RED.nodes.createNode(this, config)
     const node = this
-    this.venvconfig = RED.nodes.getNode(config.venvconfig)
+    node.venvconfig = RED.nodes.getNode(config.venvconfig)
 
-    if (!this.venvconfig) {
-      node.send({ payload: 'Missing virtual environment configuration' })
-      return
-    }
-
-    const fs = require('fs')
-    const path = require('path')
-    const child_process = require('child_process')
-
-    node.status({ fill: 'green', shape: 'dot', text: 'venv.standby' })
-    const runningText = 'Running: '
-    let runningScripts = 0
-
-    let jsonPath = path.join(
-      path.dirname(__dirname),
-      this.venvconfig.venvname,
-      'path.json'
-    )
-    let filePath = path.join(
-      path.dirname(__dirname),
-      this.venvconfig.venvname,
-      this.id + '.py'
-    )
-    if (path.isAbsolute(this.venvconfig.venvname)) {
-      jsonPath = path.join(this.venvconfig.venvname, 'path.json')
-      filePath = path.join(this.venvconfig.venvname, this.id + '.py')
-    }
-    const sanitize = str => str.replace(/[\\/:"'*?<>|()]+/g, '_')
-    const baseName =
-      this.name && this.name.trim() !== '' ? sanitize(this.name) : this.id
-    const venvDir = path.isAbsolute(this.venvconfig.venvname)
-      ? this.venvconfig.venvname
-      : path.join(path.dirname(__dirname), this.venvconfig.venvname)
-
-    const newFileName = `${baseName}-${this.id}.py`
-    filePath = path.join(venvDir, newFileName)
-
-    if (!fs.existsSync(jsonPath)) {
+    if (!node.venvconfig) {
       node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
-      node.error('Virtual environment is not ready. path.json not found.')
+      node.error('Missing virtual environment configuration')
       return
     }
-    const json = fs.readFileSync(jsonPath)
-    const rawPythonPath = JSON.parse(json).NODE_PYENV_PYTHON
-    let pythonPath = path.isAbsolute(rawPythonPath)
-      ? rawPythonPath
-      : path.join(venvDir, rawPythonPath)
-    if (!fs.existsSync(pythonPath)) {
-      const defaultRel =
-        process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'
-      pythonPath = path.join(venvDir, defaultRel)
+
+    let venvPaths
+    try {
+      venvPaths = readVenvPaths(node.venvconfig.venvname)
+    } catch (e) {
+      node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
+      node.error(e.message)
+      return
     }
+
+    const venvDir = venvPaths.venvDir
+    const pythonPath = venvPaths.python
+    const tempDir = path.join(venvDir, 'Temp')
+
+    const sanitizedName = node.name ? sanitizeBaseName(node.name) : ''
+    const baseName = sanitizedName !== '' ? sanitizedName : node.id
+    const scriptPath = path.join(venvDir, `${baseName}-${node.id}.py`)
 
     const continuous = config.continuous || false
+    const runningText = 'Running: '
 
+    let runningScripts = 0
+    let runCounter = 0
     let pythonProcess = undefined
+    const activeProcesses = new Set()
+
     node.standby = true
-    node.on('input', function (msg, send, done) {
-      node.standby = false
-      const flowContext = node.context().flow
-      const globalContext = node.context().global
+    node.status({ fill: 'green', shape: 'dot', text: 'venv.standby' })
 
-      // Handle circular references in msg object
-      const removeCircularReferences = obj => {
-        const seen = new WeakSet()
-        return JSON.stringify(obj, (key, value) => {
-          if (typeof value === 'object' && value !== null) {
-            if (seen.has(value)) {
-              return // Skip circular references
-            }
-            seen.add(value)
-          }
-          return value
+    function updateStatusAfterRun() {
+      if (runningScripts > 0) {
+        node.status({
+          fill: 'blue',
+          shape: 'dot',
+          text: runningText + runningScripts,
         })
+      } else {
+        node.status({ fill: 'green', shape: 'dot', text: 'venv.standby' })
       }
+    }
 
-      // Checks if the continuous flag is set and if so then kill the process and set it to undefined.
-      // If terminate is set to true return without starting a new continuous process.
+    node.on('input', function (msg, send, done) {
+      // Node-RED 0.x compatibility
+      send = send || node.send.bind(node)
+      done =
+        done ||
+        function (err) {
+          if (err) {
+            node.error(err, msg)
+          }
+        }
+
+      // Terminate the running continuous process instead of starting a new one.
       if (continuous && (msg.terminate === true || msg.kill === true)) {
-        pythonProcess?.kill()
+        if (pythonProcess) {
+          pythonProcess.kill()
+        }
+        done()
         return
       }
 
-      let code = ''
-      if (typeof config.code !== 'undefined' && config.code !== '') {
-        code = config.code
-      } else {
-        code = msg.code ?? ''
+      // A continuous process is a singleton per node: replace the previous one
+      // rather than leaking it by overwriting the reference.
+      if (continuous && pythonProcess && pythonProcess.exitCode === null) {
+        node.warn('Restarting the running continuous process.')
+        pythonProcess.kill()
       }
-      fs.writeFileSync(filePath, code, { encoding: 'utf-8' })
 
-      const args = ['-c']
-      const tempDir = path.join(venvDir, 'Temp')
-      if (!fs.existsSync(tempDir)) {
+      node.standby = false
+
+      const code =
+        typeof config.code !== 'undefined' && config.code !== ''
+          ? config.code
+          : (msg.code ?? '')
+
+      const withFlow = usesFlowContext(code)
+      const withGlobal = usesGlobalContext(code)
+      const flowContext = node.context().flow
+      const globalContext = node.context().global
+
+      // Unique per invocation so concurrent messages cannot read each other's data.
+      const runId = `${node.id}_${++runCounter}`
+      const io = {
+        script: scriptPath,
+        msg: path.join(tempDir, `${runId}_msg.json`),
+        msgOut: path.join(tempDir, `${runId}_msg_out.json`),
+      }
+      if (withFlow) {
+        io.flow = path.join(tempDir, `${runId}_flow.json`)
+        io.flowOut = path.join(tempDir, `${runId}_flow_out.json`)
+      }
+      if (withGlobal) {
+        io.global = path.join(tempDir, `${runId}_global.json`)
+        io.globalOut = path.join(tempDir, `${runId}_global_out.json`)
+      }
+
+      const tempKeys = [
+        'msg',
+        'msgOut',
+        'flow',
+        'flowOut',
+        'global',
+        'globalOut',
+      ]
+      const cleanUpTempFiles = () => {
+        for (const key of tempKeys) {
+          if (io[key]) {
+            removeFileQuietly(io[key])
+          }
+        }
+      }
+
+      // Keep original snapshots so only genuinely modified keys are written back.
+      let originalFlow = {}
+      let originalGlobal = {}
+
+      try {
         fs.mkdirSync(tempDir, { recursive: true })
-      }
+        fs.writeFileSync(scriptPath, code, { encoding: 'utf-8' })
+        fs.writeFileSync(io.msg, stringifyWithoutCircularReferences(msg), {
+          encoding: 'utf-8',
+        })
 
-      const tempMsgPath = path.join(tempDir, `${node.id}_msg.json`)
-      const tempMsgOutputPath = path.join(tempDir, `${node.id}_msg_out.json`)
-      const tempFlowOutputPath = path.join(tempDir, `${node.id}_flow_out.json`)
-      const tempGlobalOutputPath = path.join(
-        tempDir,
-        `${node.id}_global_out.json`
-      )
-
-      // Remove stale output files from previous runs to avoid reading old data on error
-      try {
-        fs.unlinkSync(tempMsgOutputPath)
-      } catch (_) {}
-      try {
-        fs.unlinkSync(tempFlowOutputPath)
-      } catch (_) {}
-      try {
-        fs.unlinkSync(tempGlobalOutputPath)
-      } catch (_) {}
-
-      fs.writeFileSync(tempMsgPath, removeCircularReferences(msg), {
-        encoding: 'utf-8',
-      })
-
-      const flowRegex = /node\[['"]flow['"]\]/
-      const globalRegex = /node\[['"]global['"]\]/
-
-      let pythonScript =
-        `import json\n` +
-        `with open(r'${tempMsgPath}', 'r', encoding='utf-8') as msg_file:\n` +
-        `    msg = json.load(msg_file)\n` +
-        `node = {'flow': {}, 'global': {}}\n`
-
-      const tempFlowPath = path.join(tempDir, `${node.id}_flow.json`)
-      const tempGlobalPath = path.join(tempDir, `${node.id}_global.json`)
-
-      const usesFlowContext = flowRegex.test(code)
-      const usesGlobalContext = globalRegex.test(code)
-
-      // Keep original snapshots for comparison on writeback
-      let originalFlowSnapshot = '{}'
-      let originalGlobalSnapshot = '{}'
-
-      if (usesFlowContext) {
-        const flowData = flowContext.keys().reduce((obj, key) => {
-          obj[key] = flowContext.get(key)
-          return obj
-        }, {})
-        originalFlowSnapshot = JSON.stringify(flowData)
-        if (Object.keys(flowData).length > 0) {
-          fs.writeFileSync(tempFlowPath, JSON.stringify(flowData), {
-            encoding: 'utf-8',
-          })
-          pythonScript +=
-            `with open(r'${tempFlowPath}', 'r', encoding='utf-8') as flow_file:\n` +
-            `    node['flow'] = json.load(flow_file)\n`
+        if (withFlow) {
+          originalFlow = readContext(flowContext)
+          if (Object.keys(originalFlow).length > 0) {
+            fs.writeFileSync(io.flow, JSON.stringify(originalFlow), {
+              encoding: 'utf-8',
+            })
+          } else {
+            delete io.flow
+          }
         }
-      }
-
-      if (usesGlobalContext) {
-        const globalData = globalContext.keys().reduce((obj, key) => {
-          obj[key] = globalContext.get(key)
-          return obj
-        }, {})
-        originalGlobalSnapshot = JSON.stringify(globalData)
-        if (Object.keys(globalData).length > 0) {
-          fs.writeFileSync(tempGlobalPath, JSON.stringify(globalData), {
-            encoding: 'utf-8',
-          })
-          pythonScript +=
-            `with open(r'${tempGlobalPath}', 'r', encoding='utf-8') as global_file:\n` +
-            `    node['global'] = json.load(global_file)\n`
+        if (withGlobal) {
+          originalGlobal = readContext(globalContext)
+          if (Object.keys(originalGlobal).length > 0) {
+            fs.writeFileSync(io.global, JSON.stringify(originalGlobal), {
+              encoding: 'utf-8',
+            })
+          } else {
+            delete io.global
+          }
         }
+      } catch (e) {
+        cleanUpTempFiles()
+        node.standby = true
+        node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
+        done(e)
+        return
       }
 
-      pythonScript += `exec(open(r'${filePath}', encoding='utf-8').read())\n`
-
-      // Write back msg after execution
-      pythonScript +=
-        `try:\n` +
-        `    with open(r'${tempMsgOutputPath}', 'w', encoding='utf-8') as _msg_out:\n` +
-        `        json.dump(msg, _msg_out, default=str)\n` +
-        `except Exception:\n` +
-        `    pass\n`
-
-      if (usesFlowContext) {
-        pythonScript +=
-          `try:\n` +
-          `    with open(r'${tempFlowOutputPath}', 'w', encoding='utf-8') as _flow_out:\n` +
-          `        json.dump(node['flow'], _flow_out, default=str)\n` +
-          `except Exception:\n` +
-          `    pass\n`
-      }
-
-      if (usesGlobalContext) {
-        pythonScript +=
-          `try:\n` +
-          `    with open(r'${tempGlobalOutputPath}', 'w', encoding='utf-8') as _global_out:\n` +
-          `        json.dump(node['global'], _global_out, default=str)\n` +
-          `except Exception:\n` +
-          `    pass\n`
-      }
-
-      args.push(pythonScript)
-
-      let stdoutData = ''
-      let stderrData = ''
-      let rollingStderrData = ''
-
+      const args = []
       if (continuous) {
         // Disable stdout and stderr buffering
-        args.unshift('-u')
+        args.push('-u')
         node.status({
           fill: 'blue',
           shape: 'dot',
@@ -225,154 +210,139 @@ module.exports = function (RED) {
           text: runningText + runningScripts,
         })
       }
+      args.push('-c', buildBootstrapScript(withFlow, withGlobal))
 
-      const env = { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }
-      pythonProcess = child_process.spawn(pythonPath, args, { env })
-      pythonProcess.on('error', err => {
-        node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
-        if (done) {
-          done(err)
-        } else {
-          node.error(err)
+      const env = {
+        ...process.env,
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONUTF8: '1',
+        NODE_RED_VENV_IO: JSON.stringify(io),
+      }
+
+      let stdoutData = ''
+      let stderrData = ''
+      let rollingStderrData = ''
+      let finished = false
+
+      const child = child_process.spawn(pythonPath, args, { env })
+      pythonProcess = child
+      activeProcesses.add(child)
+
+      // 'error' and 'exit' can both fire; only the first one completes the message.
+      const finish = err => {
+        if (finished) {
+          return
         }
-      })
-      pythonProcess.on('message', console.log)
+        finished = true
+        activeProcesses.delete(child)
+        if (pythonProcess === child) {
+          pythonProcess = undefined
+        }
+        cleanUpTempFiles()
+        node.standby = true
+        done(err)
+      }
 
-      pythonProcess.stdout.on('data', chunk => {
+      child.on('error', err => {
+        if (!continuous) {
+          runningScripts--
+        }
+        node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
+        finish(err)
+      })
+
+      child.stdout.on('data', chunk => {
         stdoutData += chunk.toString('utf8')
-        // In continuous mode, send the output line by line
+        // In continuous mode, forward the output as soon as a line is complete
         if (continuous && stdoutData.endsWith('\n')) {
-          msg.payload = stdoutData
-          send(msg)
+          send({ ...msg, payload: stdoutData })
           stdoutData = ''
         }
       })
 
-      pythonProcess.stderr.on('data', chunk => {
+      child.stderr.on('data', chunk => {
         const err = chunk.toString('utf8')
         stderrData += err
         rollingStderrData += err
-        // In continuous mode, send errors line by line
+        // In continuous mode, report errors as soon as a line is complete
         if (continuous && rollingStderrData.endsWith('\n')) {
-          node.error(rollingStderrData)
+          node.error(rollingStderrData, msg)
           rollingStderrData = ''
         }
       })
 
-      pythonProcess.on('exit', (code, signal) => {
-        // If signal is null and the exit code is not 0, then the process exited with an error
-        if (signal === null && code !== 0) {
-          node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
-          const err = `Error ${code}${
-            stderrData === '' ? '' : `: ${stderrData}`
-          }`
-          if (done) {
-            done(err)
-          } else {
-            node.error(err)
-          }
-        } else {
-          // Read back msg properties set in Python
-          try {
-            if (fs.existsSync(tempMsgOutputPath)) {
-              const outputMsg = JSON.parse(
-                fs.readFileSync(tempMsgOutputPath, 'utf-8')
-              )
-              for (const [key, value] of Object.entries(outputMsg)) {
-                msg[key] = value
-              }
-            }
-          } catch (e) {
-            /* ignore read errors */
-          }
-
-          // Read back flow context set in Python (only changed keys)
-          if (usesFlowContext) {
-            try {
-              if (fs.existsSync(tempFlowOutputPath)) {
-                const flowData = JSON.parse(
-                  fs.readFileSync(tempFlowOutputPath, 'utf-8')
-                )
-                const origFlow = JSON.parse(originalFlowSnapshot)
-                for (const [key, value] of Object.entries(flowData)) {
-                  if (JSON.stringify(value) !== JSON.stringify(origFlow[key])) {
-                    flowContext.set(key, value)
-                  }
-                }
-              }
-            } catch (e) {
-              /* ignore read errors */
-            }
-          }
-
-          // Read back global context set in Python (only changed keys)
-          if (usesGlobalContext) {
-            try {
-              if (fs.existsSync(tempGlobalOutputPath)) {
-                const globalData = JSON.parse(
-                  fs.readFileSync(tempGlobalOutputPath, 'utf-8')
-                )
-                const origGlobal = JSON.parse(originalGlobalSnapshot)
-                for (const [key, value] of Object.entries(globalData)) {
-                  if (
-                    JSON.stringify(value) !== JSON.stringify(origGlobal[key])
-                  ) {
-                    globalContext.set(key, value)
-                  }
-                }
-              }
-            } catch (e) {
-              /* ignore read errors */
-            }
-          }
-
-          if (!continuous) {
-            runningScripts--
-
-            // Backward compat: stdout overrides msg.payload if non-empty
-            if (stdoutData) {
-              msg.payload = stdoutData
-            }
-            send(msg)
-            if (runningScripts === 0) {
-              node.status({
-                fill: 'green',
-                shape: 'dot',
-                text: 'venv.standby',
-              })
-            } else {
-              node.status({
-                fill: 'blue',
-                shape: 'dot',
-                text: runningText + runningScripts,
-              })
-            }
-          }
-          // In continuous mode, check if the process was killed or if it has exited cleanly
-          else if (pythonProcess.killed) {
-            node.status({
-              fill: 'yellow',
-              shape: 'dot',
-              text: 'venv.terminate-continuous',
-            })
-          } else {
-            node.status({
-              fill: 'green',
-              shape: 'dot',
-              text: 'venv.standby',
-            })
-          }
-          node.standby = true
+      child.on('exit', (exitCode, signal) => {
+        if (!continuous) {
+          runningScripts--
         }
 
-        done()
+        // A null signal with a non-zero code means the script itself failed.
+        if (signal === null && exitCode !== 0) {
+          node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
+          finish(
+            `Error ${exitCode}${stderrData === '' ? '' : `: ${stderrData}`}`
+          )
+          return
+        }
+
+        // Read back msg properties set in Python
+        const outputMsg = readJsonFileOrNull(io.msgOut)
+        if (outputMsg !== null && typeof outputMsg === 'object') {
+          Object.assign(msg, outputMsg)
+        }
+
+        if (withFlow) {
+          const flowData = readJsonFileOrNull(io.flowOut)
+          if (flowData !== null && typeof flowData === 'object') {
+            writeChangedContext(flowContext, flowData, originalFlow)
+          }
+        }
+        if (withGlobal) {
+          const globalData = readJsonFileOrNull(io.globalOut)
+          if (globalData !== null && typeof globalData === 'object') {
+            writeChangedContext(globalContext, globalData, originalGlobal)
+          }
+        }
+
+        if (!continuous) {
+          // Backward compat: stdout overrides msg.payload if non-empty
+          if (stdoutData) {
+            msg.payload = stdoutData
+          }
+          send(msg)
+          updateStatusAfterRun()
+        } else {
+          // Flush output that was not newline terminated
+          if (stdoutData) {
+            send({ ...msg, payload: stdoutData })
+            stdoutData = ''
+          }
+          if (rollingStderrData) {
+            node.error(rollingStderrData, msg)
+            rollingStderrData = ''
+          }
+          node.status(
+            child.killed
+              ? {
+                  fill: 'yellow',
+                  shape: 'dot',
+                  text: 'venv.terminate-continuous',
+                }
+              : { fill: 'green', shape: 'dot', text: 'venv.standby' }
+          )
+        }
+
+        finish()
       })
     })
-    // Clean up the python process on node close
-    this.on('close', function (_removed, done) {
-      if (pythonProcess) {
-        pythonProcess.kill()
+
+    // Clean up any python process still running when the node is stopped
+    node.on('close', function (_removed, done) {
+      for (const child of activeProcesses) {
+        child.kill()
       }
+      activeProcesses.clear()
+      pythonProcess = undefined
       done()
     })
   }

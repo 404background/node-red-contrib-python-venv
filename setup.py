@@ -1,17 +1,23 @@
 import subprocess
 import os
 import json
+import shutil
 import sys
 from pathlib import Path
 
+if len(sys.argv) < 2 or sys.argv[1].strip() == '':
+    print('Usage: python setup.py <venv name or absolute path> [python version]', file=sys.stderr)
+    sys.exit(2)
+
 venvName = sys.argv[1]
+version = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2].strip() != '' else None
 
 absDir = os.path.dirname(os.path.abspath(__file__))
 
 if Path(venvName).is_absolute():
-    venvPath = venvName
+    venvPath = os.path.abspath(venvName)
 else:
-    venvPath = f'{absDir}/{venvName}'
+    venvPath = os.path.join(absDir, venvName)
 
 if os.path.isdir(venvPath):
     # If path.json already exists, nothing to do
@@ -69,9 +75,17 @@ except ImportError:
 # Determine python command for subprocess calls
 python_cmd = 'python' if os.name == 'nt' else 'python3'
 
+# On POSIX there is no launcher like py.exe, so a requested version maps to the
+# versioned interpreter name. Fall back with a warning when it is not installed.
+if os.name != 'nt' and version is not None:
+    versionedCmd = f'python{version}'
+    if shutil.which(versionedCmd):
+        python_cmd = versionedCmd
+    else:
+        print(f'WARNING: {versionedCmd} was not found. Using {python_cmd} instead.', file=sys.stderr)
+
 if os.name == 'nt':
-    if len(sys.argv) == 3:
-        version = sys.argv[2]
+    if version is not None:
         result = subprocess.run(['py', f'-{version}', '-m', 'venv', venvPath])
     else:
         result = subprocess.run([python_cmd, '-m', 'venv', venvPath])
@@ -79,7 +93,7 @@ if os.name == 'nt':
         print('ERROR: Failed to create virtual environment.', file=sys.stderr)
         sys.exit(1)
     # Try to upgrade pip, but don't fail if pip isn't available
-    pip_result = subprocess.run([f'{venvPath}/Scripts/python.exe', '-m', 'pip', 'install', '--upgrade', 'pip'])
+    pip_result = subprocess.run([os.path.join(venvPath, 'Scripts', 'python.exe'), '-m', 'pip', 'install', '--upgrade', 'pip'])
     if pip_result.returncode != 0:
         print('WARNING: Failed to upgrade pip. pip may not be available in the virtual environment.', file=sys.stderr)
     path = {
@@ -97,7 +111,7 @@ else:
         print('ERROR: Failed to create virtual environment.', file=sys.stderr)
         sys.exit(1)
     # Try to upgrade pip, but don't fail if pip isn't available
-    pip_result = subprocess.run([f'{venvPath}/bin/python', '-m', 'pip', 'install', '--upgrade', 'pip'])
+    pip_result = subprocess.run([os.path.join(venvPath, 'bin', 'python'), '-m', 'pip', 'install', '--upgrade', 'pip'])
     if pip_result.returncode != 0:
         print('WARNING: Failed to upgrade pip in virtual environment.', file=sys.stderr)
     path = {
@@ -106,7 +120,7 @@ else:
         'NODE_PYENV_EXEC': 'bin/'
     }
 
-with open(f'{venvPath}/path.json', 'w') as f:
+with open(os.path.join(venvPath, 'path.json'), 'w') as f:
     json.dump(path, f, indent=4)
 
 # Marker to indicate this venv was created by this node (used for safe cleanup)

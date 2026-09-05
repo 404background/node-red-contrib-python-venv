@@ -1,118 +1,172 @@
-module.exports = function (RED) {
-  const path = require('path')
-  const fs = require('fs')
-  const { execSync, spawnSync } = require('child_process')
+const path = require('path')
+const fs = require('fs')
+const { spawnSync } = require('child_process')
+const { PACKAGE_ROOT, resolveVenvDir } = require('./lib/venv-paths')
 
-  /**
-   * Check if python, venv module, and pip module are available.
-   * Returns { python: bool, venv: bool, pip: bool, pythonCmd: string, details: string[] }
-   */
-  function checkPythonEnvironment(version) {
-    const result = {
-      python: false,
-      venv: false,
-      pip: false,
-      pythonCmd: '',
-      details: [],
+const SETUP_SCRIPT = path.join(PACKAGE_ROOT, 'setup.py')
+const CREATED_MARKER = '.node-red-venv-created'
+const COMMAND_TIMEOUT_MS = 10000
+
+// Files and directories a virtual environment created by this node may contain.
+// Only these are removed on cleanup so that unrelated user files are preserved.
+const VENV_ENTRIES = [
+  'Scripts',
+  'bin',
+  'Lib',
+  'lib',
+  'lib64',
+  'Include',
+  'include',
+  'share',
+  'Temp',
+  'pyvenv.cfg',
+  'path.json',
+  CREATED_MARKER,
+  '.gitignore',
+]
+
+// Script files written by venv nodes: "<name>-<node id>.py"
+const NODE_SCRIPT_FILE = /^.+-[0-9a-f]{8,}\.py$/
+
+/**
+ * Resolve the interpreter used to create the virtual environment.
+ * @param {string} version optional Python version ('' or 'default' for none)
+ * @returns {{command: string, args: string[], label: string}}
+ */
+function resolvePythonLauncher(version) {
+  const hasVersion =
+    typeof version === 'string' && version !== '' && version !== 'default'
+
+  if (process.platform === 'win32') {
+    if (hasVersion) {
+      // The Windows launcher selects the requested interpreter version.
+      return { command: 'py', args: [`-${version}`], label: `py -${version}` }
     }
+    return { command: 'python', args: [], label: 'python' }
+  }
+  return { command: 'python3', args: [], label: 'python3' }
+}
 
-    // Determine python command and args for spawnSync
-    let pythonCmd = 'python3'
-    let spawnCmd = 'python3'
-    let spawnArgs = []
-    // On Windows, avoid shell: true to prevent cmd.exe from splitting -c arguments on spaces.
-    // On Linux/macOS, use shell: true so PATH is resolved correctly (e.g. when running as a service).
-    const useShell = process.platform !== 'win32'
-    // When using shell, wrap -c code in double quotes to prevent word splitting
-    const shellQuote = code => (useShell ? `"${code}"` : code)
-    if (process.platform === 'win32') {
-      if (version && version !== '' && version !== 'default') {
-        pythonCmd = `py -${version}`
-        spawnCmd = 'py'
-        spawnArgs = [`-${version}`]
-      } else {
-        pythonCmd = 'python'
-        spawnCmd = 'python'
-      }
-    }
-    result.pythonCmd = pythonCmd
-
-    // Check python
-    try {
-      const ver = spawnSync(spawnCmd, [...spawnArgs, '--version'], {
-        shell: useShell,
-        timeout: 10000,
-      })
-      if (ver.status === 0) {
-        result.python = true
-        result.details.push(ver.stdout.toString().trim())
-      } else {
-        result.details.push(`Python not found (command: ${pythonCmd})`)
-        return result
-      }
-    } catch (e) {
-      result.details.push(`Python not found (command: ${pythonCmd})`)
-      return result
-    }
-
-    // Check venv module
-    try {
-      const venvCheck = spawnSync(
-        spawnCmd,
-        [...spawnArgs, '-c', shellQuote('import venv, ensurepip')],
-        { shell: useShell, timeout: 10000 }
-      )
-      if (venvCheck.status === 0) {
-        result.venv = true
-      } else {
-        if (process.platform === 'win32') {
-          result.details.push(
-            'venv module is not available. Please install Python from https://www.python.org/ (not the Microsoft Store version).'
-          )
-        } else {
-          result.details.push(
-            'venv module is not available. On Debian/Ubuntu, install it with: sudo apt install python3-venv'
-          )
-        }
-      }
-    } catch (e) {
-      result.details.push('venv module is not available.')
-    }
-
-    // Check pip module (ensurepip)
-    try {
-      const pipCheck = spawnSync(
-        spawnCmd,
-        [...spawnArgs, '-c', shellQuote('import ensurepip')],
-        { shell: useShell, timeout: 10000 }
-      )
-      if (pipCheck.status === 0) {
-        result.pip = true
-      } else {
-        result.details.push(
-          'pip is not available.' +
-            (process.platform === 'win32'
-              ? ' Please install Python from https://www.python.org/ and ensure pip is included.'
-              : ' On Debian/Ubuntu, install it with: sudo apt install python3-pip')
-        )
-      }
-    } catch (e) {
-      result.details.push('pip is not available.')
-    }
-
-    return result
+/**
+ * Check if python, the venv module and pip are available.
+ * @param {string} version
+ * @returns {{python: boolean, venv: boolean, pip: boolean, pythonCmd: string, details: string[]}}
+ */
+function checkPythonEnvironment(version) {
+  const result = {
+    python: false,
+    venv: false,
+    pip: false,
+    pythonCmd: '',
+    details: [],
   }
 
+  const launcher = resolvePythonLauncher(version)
+  result.pythonCmd = launcher.label
+
+  // On Windows, avoid shell: true to prevent cmd.exe from splitting -c arguments on spaces.
+  // On Linux/macOS, use shell: true so PATH is resolved correctly (e.g. when running as a service).
+  const useShell = process.platform !== 'win32'
+  // When using a shell, wrap -c code in double quotes to prevent word splitting
+  const shellQuote = code => (useShell ? `"${code}"` : code)
+
+  const run = extraArgs => {
+    try {
+      return spawnSync(launcher.command, [...launcher.args, ...extraArgs], {
+        shell: useShell,
+        timeout: COMMAND_TIMEOUT_MS,
+      })
+    } catch (_e) {
+      return null
+    }
+  }
+
+  const versionCheck = run(['--version'])
+  if (!versionCheck || versionCheck.status !== 0) {
+    result.details.push(`Python not found (command: ${launcher.label})`)
+    return result
+  }
+  result.python = true
+  result.details.push(String(versionCheck.stdout || '').trim())
+
+  const venvCheck = run(['-c', shellQuote('import venv, ensurepip')])
+  if (venvCheck && venvCheck.status === 0) {
+    result.venv = true
+  } else if (process.platform === 'win32') {
+    result.details.push(
+      'venv module is not available. Please install Python from https://www.python.org/ (not the Microsoft Store version).'
+    )
+  } else {
+    result.details.push(
+      'venv module is not available. On Debian/Ubuntu, install it with: sudo apt install python3-venv'
+    )
+  }
+
+  const pipCheck = run(['-c', shellQuote('import ensurepip')])
+  if (pipCheck && pipCheck.status === 0) {
+    result.pip = true
+  } else {
+    result.details.push(
+      'pip is not available.' +
+        (process.platform === 'win32'
+          ? ' Please install Python from https://www.python.org/ and ensure pip is included.'
+          : ' On Debian/Ubuntu, install it with: sudo apt install python3-pip')
+    )
+  }
+
+  return result
+}
+
+/**
+ * Remove a virtual environment that this node created, entry by entry.
+ * Unknown files are left untouched and the directory itself is only removed
+ * once it is empty.
+ * @param {string} venvPath
+ */
+function removeCreatedVenv(venvPath) {
+  for (const entry of VENV_ENTRIES) {
+    const entryPath = path.join(venvPath, entry)
+    if (fs.existsSync(entryPath)) {
+      fs.rmSync(entryPath, { recursive: true, force: true })
+    }
+  }
+
+  // Remove .py script files created by venv nodes (filename contains a node ID)
+  try {
+    for (const file of fs.readdirSync(venvPath)) {
+      if (NODE_SCRIPT_FILE.test(file)) {
+        fs.rmSync(path.join(venvPath, file), { force: true })
+      }
+    }
+  } catch (_e) {
+    // Directory already gone or unreadable
+  }
+
+  // Remove the venv directory only if it is now empty
+  try {
+    fs.rmdirSync(venvPath)
+  } catch (_e) {
+    // Directory not empty - leave it as is
+  }
+}
+
+module.exports = function (RED) {
   function venvConfig(config) {
     RED.nodes.createNode(this, config)
     this.venvname = config.venvname
     this.version = config.version
     const node = this
 
-    const setupPath = path.join(path.dirname(__dirname), 'setup.py')
-    let venvPath = path.isAbsolute(this.venvname)
-      ? this.venvname
-      : path.join(path.dirname(__dirname), this.venvname)
+    if (
+      typeof this.venvname !== 'string' ||
+      this.venvname.trim() === '' ||
+      this.venvname === 'undefined'
+    ) {
+      node.warn('Invalid venv name. Virtual environment will not be created.')
+      return
+    }
+
+    const venvPath = resolveVenvDir(this.venvname)
 
     // Check environment before attempting to create venv
     const envCheck = checkPythonEnvironment(this.version)
@@ -149,62 +203,44 @@ module.exports = function (RED) {
     }
 
     if (envCheck.venv) {
+      // setup.py is always run with the default interpreter; it applies the
+      // requested version itself through the Windows launcher.
       const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
-      let command = `${pythonCmd} ${setupPath} "${this.venvname}"`
+      const args = [SETUP_SCRIPT, this.venvname]
       if (
-        typeof this.version !== 'undefined' &&
+        typeof this.version === 'string' &&
         this.version !== '' &&
         this.version !== 'default'
       ) {
-        command += ` ${this.version}`
+        args.push(this.version)
       }
-      try {
-        execSync(command)
-      } catch (e) {
-        node.warn(`Failed to create virtual environment: ${e.message}`)
+      // Arguments are passed as an array so that spaces in the package path or
+      // in the venv name cannot be reinterpreted by a shell.
+      const setup = spawnSync(pythonCmd, args, { encoding: 'utf-8' })
+      if (setup.error) {
+        node.warn(
+          `Failed to create virtual environment: ${setup.error.message}`
+        )
+      } else if (setup.status !== 0) {
+        const detail = (setup.stderr || '').trim()
+        node.warn(
+          `Failed to create virtual environment (exit code ${setup.status})` +
+            (detail === '' ? '' : `: ${detail}`)
+        )
       }
     }
 
     this.on('close', function (removed, done) {
       if (removed) {
-        const markerFile = path.join(venvPath, '.node-red-venv-created')
+        const markerFile = path.join(venvPath, CREATED_MARKER)
         const hasPyvenvCfg = fs.existsSync(path.join(venvPath, 'pyvenv.cfg'))
-        const depth = path.resolve(venvPath).split(path.sep).filter(Boolean).length
+        // Refuse to touch a filesystem root or a top level directory.
+        const depth = venvPath.split(path.sep).filter(Boolean).length
         if (fs.existsSync(markerFile) && hasPyvenvCfg && depth >= 2) {
-          // Only delete known venv-related files and directories
-          const venvEntries = [
-            'Scripts', 'bin',
-            'Lib', 'lib', 'lib64',
-            'Include', 'include',
-            'share',
-            'Temp',
-            'pyvenv.cfg',
-            'path.json',
-            '.node-red-venv-created',
-            '.gitignore',
-          ]
-          for (const entry of venvEntries) {
-            const entryPath = path.join(venvPath, entry)
-            if (fs.existsSync(entryPath)) {
-              fs.rmSync(entryPath, { recursive: true, force: true })
-            }
-          }
-          // Remove .py script files created by venv nodes (filename contains a node ID)
           try {
-            const remaining = fs.readdirSync(venvPath)
-            for (const file of remaining) {
-              if (/^.+-[0-9a-f]{8,}\.py$/.test(file)) {
-                fs.rmSync(path.join(venvPath, file), { force: true })
-              }
-            }
-          } catch (_e) {
-            // ignore read errors
-          }
-          // Remove the venv directory only if it is now empty
-          try {
-            fs.rmdirSync(venvPath)
-          } catch (_e) {
-            // Directory not empty — leave it as is
+            removeCreatedVenv(venvPath)
+          } catch (e) {
+            node.warn(`Failed to remove virtual environment: ${e.message}`)
           }
         }
       }
@@ -217,16 +253,14 @@ module.exports = function (RED) {
     RED.auth.needsPermission('venvconfig.read'),
     function (req, res) {
       const venvname = req.query.venvname
-
       let absolutePath
-      if (path.isAbsolute(venvname)) {
-        absolutePath = venvname
-      } else {
-        absolutePath = path.resolve(
-          path.join(path.dirname(path.dirname(__dirname)), venvname)
-        )
+      try {
+        // Same resolution as the runtime, so the editor shows the real location.
+        absolutePath = resolveVenvDir(venvname)
+      } catch (e) {
+        res.status(400).json({ error: e.message })
+        return
       }
-
       res.json({ path: absolutePath })
     }
   )
@@ -236,8 +270,7 @@ module.exports = function (RED) {
     RED.auth.needsPermission('venvconfig.read'),
     function (req, res) {
       const version = req.query.version || ''
-      const result = checkPythonEnvironment(version)
-      res.json(result)
+      res.json(checkPythonEnvironment(version))
     }
   )
 

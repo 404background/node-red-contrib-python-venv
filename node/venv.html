@@ -6,8 +6,7 @@
       venvconfig: { value: '', type: 'venv-config' },
       name: { value: '' },
       code: { value: '' },
-      continuous: { required: false },
-      stdInData: { required: false },
+      continuous: { value: false },
     },
     inputs: 1,
     outputs: 1,
@@ -45,10 +44,6 @@
             setTimeout(() => editor.focus(), 500)
           },
         })
-      })
-
-      $('#node-input-continuous').change(function (e) {
-        this.continuous = e.target.checked
       })
     },
     oneditsave: function () {
@@ -97,8 +92,8 @@
               RED.notify(
                 node._('common.notification.error', {
                   message: node._('common.notification.errors.unexpected', {
-                    status: err.status,
-                    message: err.response,
+                    status: jqXHR.status,
+                    message: jqXHR.responseText,
                   }),
                 }),
                 'error'
@@ -113,17 +108,21 @@
 
 <script type="text/html" data-template-name="venv">
   <div class="form-row">
-    <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="venv.name"></label>
+    <label for="node-input-name"
+      ><i class="fa fa-tag"></i> <span data-i18n="venv.name"></span
+    ></label>
     <input type="text" id="node-input-name" placeholder="Name" />
   </div>
 
   <div class="form-row">
-    <label for="node-input-venvconfig"><i class="fa fa-gears"></i> <span data-i18n="venv.venvName"></label>
+    <label for="node-input-venvconfig"
+      ><i class="fa fa-gears"></i> <span data-i18n="venv.venvName"></span
+    ></label>
     <input id="node-input-venvconfig" />
   </div>
 
   <div class="form-row">
-    <label> <span data-i18n="venv.continuous"></label>
+    <label> <span data-i18n="venv.continuous"></span></label>
     <input
       type="checkbox"
       id="node-input-continuous"
@@ -133,8 +132,8 @@
 
   <div class="form-row" style="position: relative; margin-bottom: 0px;">
     <label style="cursor: unset;" for="node-input-code"
-      ><i class="fa fa-code"></i> <span> <span data-i18n="venv.code"></span></label
-    >
+      ><i class="fa fa-code"></i> <span data-i18n="venv.code"></span
+    ></label>
     <input type="hidden" id="node-input-code" autofocus="autofocus" />
     <button
       id="node-expand-code-editor"

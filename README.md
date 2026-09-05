@@ -78,6 +78,8 @@ Then you can execute it with arguments in Execute mode.
 ![venv-exec-list.jpg](./img/venv-exec-list.jpg)
 ![venv-exec-execute.jpg](./img/venv-exec-execute.jpg)
 
+> **Note:** Arguments are split on whitespace and passed to the executable directly, without a shell. Wrap a value in single or double quotes to keep spaces inside it (for example `-c "print(1 + 1)"`). Shell features such as pipes and redirection are not available.
+
 The venv-exec node stops execution when either `msg.kill` or `msg.terminate` is set to `true`, aligning its behavior with Node-RED's `exec` node.
 
 ### venv-config (config node)

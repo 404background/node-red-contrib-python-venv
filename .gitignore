@@ -4,6 +4,10 @@ pyenv/
 path.json
 .claude/
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Node
 
 # Logs

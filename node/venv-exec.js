@@ -1,157 +1,195 @@
-module.exports = function (RED) {
-  const fs = require('fs')
-  const path = require('path')
-  const child_process = require('child_process')
+const fs = require('fs')
+const child_process = require('child_process')
+const { readVenvPaths } = require('./lib/venv-paths')
+const { parseArguments, resolveExecutable } = require('./lib/command-args')
 
+module.exports = function (RED) {
   function VenvExec(config) {
     RED.nodes.createNode(this, config)
     const node = this
-    this.venvconfig = RED.nodes.getNode(config.venvconfig)
-    if (!this.venvconfig) {
-      node.send({ payload: 'Missing virtual environment configuration' })
-      return
-    }
+    node.venvconfig = RED.nodes.getNode(config.venvconfig)
 
-    let jsonPath = path.join(
-      path.dirname(__dirname),
-      this.venvconfig.venvname,
-      'path.json'
-    )
-    if (path.isAbsolute(this.venvconfig.venvname)) {
-      jsonPath = path.join(this.venvconfig.venvname, 'path.json')
-    }
-
-    if (!fs.existsSync(jsonPath)) {
+    if (!node.venvconfig) {
       node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
-      node.error('Virtual environment is not ready. path.json not found.')
+      node.error('Missing virtual environment configuration')
       return
     }
-    const json = fs.readFileSync(jsonPath)
-    const rawExecPath = JSON.parse(json).NODE_PYENV_EXEC
-    const venvDir = path.isAbsolute(this.venvconfig.venvname)
-      ? this.venvconfig.venvname
-      : path.join(path.dirname(__dirname), this.venvconfig.venvname)
-    let venvExec = path.isAbsolute(rawExecPath)
-      ? rawExecPath
-      : path.join(venvDir, rawExecPath)
-    if (!fs.existsSync(venvExec)) {
-      const defaultRel = process.platform === 'win32' ? 'Scripts/' : 'bin/'
-      venvExec = path.join(venvDir, defaultRel)
+
+    let venvPaths
+    try {
+      venvPaths = readVenvPaths(node.venvconfig.venvname)
+    } catch (e) {
+      node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
+      node.error(e.message)
+      return
     }
-    let execPath = ''
-    let pythonProcess = null
+
+    const execDir = venvPaths.exec
+    let currentProcess = null
+
     node.status({ fill: 'green', shape: 'dot', text: 'venv-exec.standby' })
 
     node.on('input', function (msg, send, done) {
-      let terminated = false
+      // Node-RED 0.x compatibility
+      send = send || node.send.bind(node)
+      done =
+        done ||
+        function (err) {
+          if (err) {
+            node.error(err, msg)
+          }
+        }
+
       if (msg.terminate === true || msg.kill === true) {
-        if (pythonProcess) {
-          pythonProcess.kill()
-          terminated = true
+        if (currentProcess) {
+          // Flag lives on the process so that the exit handler of the process
+          // being killed sees it, whichever message asked for the kill.
+          currentProcess.terminatedByRequest = true
+          currentProcess.kill()
         }
         done()
         return
       }
 
       if (config.mode === 'list') {
-        fs.readdir(venvExec, (err, files) => {
+        fs.readdir(execDir, (err, files) => {
           if (err) {
-            node.error('Error:', err)
-            if (done) done(err)
+            node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
+            done(err)
             return
           }
+          node.status({
+            fill: 'green',
+            shape: 'dot',
+            text: 'venv-exec.standby',
+          })
           msg.payload = files
           send(msg)
           done()
         })
-      } else if (config.mode === 'execute') {
-        let argument = ''
-        if (
-          typeof config.arguments !== 'undefined' &&
-          config.arguments !== ''
-        ) {
-          argument = String(config.arguments)
-        } else if (typeof msg.payload !== 'undefined' && msg.payload !== '') {
-          argument = String(msg.payload)
-        }
-        const args = argument.replace(/'([^']+)'/g, '"$1"')
+        return
+      }
 
-        if (
-          typeof config.executable !== 'undefined' &&
-          config.executable !== ''
-        ) {
-          execPath = path.join(venvExec, config.executable)
-        } else {
+      if (config.mode !== 'execute') {
+        done(`Unknown mode: ${config.mode}`)
+        return
+      }
+
+      if (typeof config.executable !== 'string' || config.executable === '') {
+        node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
+        done('No executable configured')
+        return
+      }
+
+      let execPath
+      try {
+        execPath = resolveExecutable(execDir, config.executable)
+      } catch (e) {
+        node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
+        done(e)
+        return
+      }
+
+      let argument = ''
+      if (typeof config.arguments !== 'undefined' && config.arguments !== '') {
+        argument = String(config.arguments)
+      } else if (typeof msg.payload !== 'undefined' && msg.payload !== '') {
+        argument = String(msg.payload)
+      }
+      const args = parseArguments(argument)
+
+      fs.access(execPath, fs.constants.F_OK, accessErr => {
+        if (accessErr) {
+          node.status({
+            fill: 'red',
+            shape: 'dot',
+            text: 'venv-exec.notFound',
+          })
+          done(accessErr)
           return
         }
 
-        fs.access(execPath, fs.constants.F_OK, err => {
-          if (err) {
+        let stdoutData = ''
+        let stderrData = ''
+        let finished = false
+
+        // Spawned without a shell so that spaces in the venv path are safe and
+        // the arguments cannot be re-interpreted by the shell.
+        const execProcess = child_process.spawn(execPath, args)
+        currentProcess = execProcess
+
+        // 'error' and 'exit' can both fire; only the first one completes the message.
+        const finish = err => {
+          if (finished) {
+            return
+          }
+          finished = true
+          if (currentProcess === execProcess) {
+            currentProcess = null
+          }
+          done(err)
+        }
+
+        node.status({
+          fill: 'blue',
+          shape: 'dot',
+          text: 'venv-exec.executing',
+        })
+
+        execProcess.on('error', err => {
+          node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
+          finish(err)
+        })
+
+        execProcess.stdout.on('data', chunk => {
+          stdoutData += chunk.toString()
+        })
+
+        execProcess.stderr.on('data', chunk => {
+          stderrData += chunk.toString()
+        })
+
+        execProcess.on('exit', (exitCode, signal) => {
+          if (execProcess.terminatedByRequest) {
             node.status({
-              fill: 'red',
+              fill: 'yellow',
               shape: 'dot',
-              text: 'venv-exec.notFound',
+              text: 'venv-exec.terminate-continuous',
             })
-            if (done) done(err)
+            finish()
             return
           }
 
-          pythonProcess = child_process.spawn(execPath + ' ' + args, {
-            shell: true,
-          })
-          pythonProcess.on('error', err => {
+          if (signal === null && exitCode !== 0) {
             node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
-            node.error(err)
-            if (done) done(err)
-          })
-          let stdoutData = ''
-          let stderrData = ''
-          node.status({
-            fill: 'blue',
-            shape: 'dot',
-            text: 'venv-exec.running-continuous',
-          })
-
-          pythonProcess.stdout.on('data', chunk => {
-            stdoutData += chunk.toString()
-          })
-
-          pythonProcess.stderr.on('data', chunk => {
-            stderrData += chunk.toString()
-          })
-
-          pythonProcess.on('exit', (code, signal) => {
-            pythonProcess = null // Clear the reference
-            if (terminated) {
-              node.status({
-                fill: 'yellow',
-                shape: 'dot',
-                text: 'venv-exec.terminate-continuous',
-              })
-              done()
-              return
-            }
-            if (signal === null && code !== 0) {
-              node.status({
-                fill: 'red',
-                shape: 'dot',
-                text: 'venv-exec.error',
-              })
-              node.error(`Error: ${code}. ${stderrData}`)
-              msg.payload = stderrData
-            } else if (code === 0) {
-              node.status({
-                fill: 'green',
-                shape: 'dot',
-                text: 'venv-exec.standby',
-              })
-              msg.payload = stdoutData
-            }
+            msg.payload = stderrData
             send(msg)
-            done()
+            finish(
+              `Error ${exitCode}${stderrData === '' ? '' : `: ${stderrData}`}`
+            )
+            return
+          }
+
+          node.status({
+            fill: 'green',
+            shape: 'dot',
+            text: 'venv-exec.standby',
           })
+          msg.payload = stdoutData
+          send(msg)
+          finish()
         })
+      })
+    })
+
+    // Stop a process still running when the node is closed
+    node.on('close', function (_removed, done) {
+      if (currentProcess) {
+        currentProcess.terminatedByRequest = true
+        currentProcess.kill()
+        currentProcess = null
       }
+      done()
     })
   }
 
