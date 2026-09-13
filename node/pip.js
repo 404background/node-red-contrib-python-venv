@@ -102,6 +102,14 @@ module.exports = function (RED) {
       })
 
       pipProcess.on('close', exitCode => {
+        // Killed on request, which happens when the node is stopped. There is
+        // no exit code to report and nothing went wrong, so stay quiet.
+        if (pipProcess.killed) {
+          status.clear()
+          finish()
+          return
+        }
+
         if (exitCode !== 0) {
           status.key('red', 'error')
           finish(
