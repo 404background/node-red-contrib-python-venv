@@ -1,52 +1,46 @@
 const fs = require('fs')
 const child_process = require('child_process')
-const { readVenvPaths } = require('./lib/venv-paths')
 const { parseArguments, resolveExecutable } = require('./lib/command-args')
+const {
+  statusReporter,
+  resolveVenvForNode,
+  legacySend,
+  legacyDone,
+  callOnce,
+  messageDeriver,
+  describeExit,
+  pickArgument,
+  trackChildProcesses,
+  killAll,
+} = require('./lib/node-runtime')
 
 module.exports = function (RED) {
   function VenvExec(config) {
     RED.nodes.createNode(this, config)
     const node = this
-    node.venvconfig = RED.nodes.getNode(config.venvconfig)
+    const status = statusReporter(node, 'venv-exec')
 
-    if (!node.venvconfig) {
-      node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
-      node.error('Missing virtual environment configuration')
-      return
-    }
-
-    let venvPaths
-    try {
-      venvPaths = readVenvPaths(node.venvconfig.venvname)
-    } catch (e) {
-      node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
-      node.error(e.message)
+    const venvPaths = resolveVenvForNode(RED, node, config, status)
+    if (!venvPaths) {
       return
     }
 
     const execDir = venvPaths.exec
-    let currentProcess = null
 
-    node.status({ fill: 'green', shape: 'dot', text: 'venv-exec.standby' })
+    // Kill whatever is still running when the node is stopped.
+    const activeProcesses = trackChildProcesses(node)
+
+    status.key('green', 'standby')
 
     node.on('input', function (msg, send, done) {
       // Node-RED 0.x compatibility
-      send = send || node.send.bind(node)
-      done =
-        done ||
-        function (err) {
-          if (err) {
-            node.error(err, msg)
-          }
-        }
+      send = legacySend(node, send)
+      done = legacyDone(node, msg, done)
 
       if (msg.terminate === true || msg.kill === true) {
-        if (currentProcess) {
-          // Flag lives on the process so that the exit handler of the process
-          // being killed sees it, whichever message asked for the kill.
-          currentProcess.terminatedByRequest = true
-          currentProcess.kill()
-        }
+        // Every process this node started is stopped, whichever message asked
+        // for it. The exit handlers report the termination through `killed`.
+        killAll(activeProcesses)
         done()
         return
       }
@@ -54,15 +48,11 @@ module.exports = function (RED) {
       if (config.mode === 'list') {
         fs.readdir(execDir, (err, files) => {
           if (err) {
-            node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
+            status.key('red', 'error')
             done(err)
             return
           }
-          node.status({
-            fill: 'green',
-            shape: 'dot',
-            text: 'venv-exec.standby',
-          })
+          status.key('green', 'standby')
           msg.payload = files
           send(msg)
           done()
@@ -76,7 +66,7 @@ module.exports = function (RED) {
       }
 
       if (typeof config.executable !== 'string' || config.executable === '') {
-        node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
+        status.key('red', 'error')
         done('No executable configured')
         return
       }
@@ -85,59 +75,38 @@ module.exports = function (RED) {
       try {
         execPath = resolveExecutable(execDir, config.executable)
       } catch (e) {
-        node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
+        status.key('red', 'error')
         done(e)
         return
       }
 
-      let argument = ''
-      if (typeof config.arguments !== 'undefined' && config.arguments !== '') {
-        argument = String(config.arguments)
-      } else if (typeof msg.payload !== 'undefined' && msg.payload !== '') {
-        argument = String(msg.payload)
-      }
-      const args = parseArguments(argument)
+      const args = parseArguments(pickArgument(config.arguments, msg.payload))
 
       fs.access(execPath, fs.constants.F_OK, accessErr => {
         if (accessErr) {
-          node.status({
-            fill: 'red',
-            shape: 'dot',
-            text: 'venv-exec.notFound',
-          })
+          status.key('red', 'notFound')
           done(accessErr)
           return
         }
 
         let stdoutData = ''
         let stderrData = ''
-        let finished = false
 
         // Spawned without a shell so that spaces in the venv path are safe and
         // the arguments cannot be re-interpreted by the shell.
         const execProcess = child_process.spawn(execPath, args)
-        currentProcess = execProcess
+        activeProcesses.add(execProcess)
 
-        // 'error' and 'exit' can both fire; only the first one completes the message.
-        const finish = err => {
-          if (finished) {
-            return
-          }
-          finished = true
-          if (currentProcess === execProcess) {
-            currentProcess = null
-          }
+        // 'error' and 'close' can both fire; only the first one completes the message.
+        const finish = callOnce(err => {
+          activeProcesses.delete(execProcess)
           done(err)
-        }
-
-        node.status({
-          fill: 'blue',
-          shape: 'dot',
-          text: 'venv-exec.executing',
         })
 
+        status.key('blue', 'executing')
+
         execProcess.on('error', err => {
-          node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
+          status.key('red', 'error')
           finish(err)
         })
 
@@ -150,35 +119,26 @@ module.exports = function (RED) {
         })
 
         /** Clone the incoming message and put `payload` on it. */
-        const derivedMessage = payload => {
-          const copy = RED.util.cloneMessage(msg)
-          copy.payload = payload
-          return copy
-        }
+        const derivedMessage = messageDeriver(RED, msg)
 
-        execProcess.on('exit', (exitCode, signal) => {
+        // 'close' rather than 'exit', so that output written right before the
+        // process ended is still part of stdoutData / stderrData.
+        execProcess.on('close', (exitCode, signal) => {
           // Third output always reports how the process ended, like the exec node.
-          const exitPayload = { code: exitCode }
-          if (signal !== null) {
-            exitPayload.signal = signal
-          }
-          const exitMessage = derivedMessage(exitPayload)
+          const exitMessage = derivedMessage(describeExit(exitCode, signal))
           const stderrMessage =
             stderrData === '' ? null : derivedMessage(stderrData)
 
-          if (execProcess.terminatedByRequest) {
-            node.status({
-              fill: 'yellow',
-              shape: 'dot',
-              text: 'venv-exec.terminate-continuous',
-            })
+          // Terminated on request: report how it ended without raising an error.
+          if (execProcess.killed) {
+            status.key('yellow', 'terminated')
             send([null, stderrMessage, exitMessage])
             finish()
             return
           }
 
           if (signal === null && exitCode !== 0) {
-            node.status({ fill: 'red', shape: 'dot', text: 'venv-exec.error' })
+            status.key('red', 'error')
             // The first output stays quiet on failure so that flows which treat
             // an incoming message as success keep working.
             send([null, stderrMessage, exitMessage])
@@ -188,26 +148,12 @@ module.exports = function (RED) {
             return
           }
 
-          node.status({
-            fill: 'green',
-            shape: 'dot',
-            text: 'venv-exec.standby',
-          })
+          status.key('green', 'standby')
           msg.payload = stdoutData
           send([msg, stderrMessage, exitMessage])
           finish()
         })
       })
-    })
-
-    // Stop a process still running when the node is closed
-    node.on('close', function (_removed, done) {
-      if (currentProcess) {
-        currentProcess.terminatedByRequest = true
-        currentProcess.kill()
-        currentProcess = null
-      }
-      done()
     })
   }
 

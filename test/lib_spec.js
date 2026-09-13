@@ -6,6 +6,7 @@ const path = require('path')
 const venvPaths = require('../node/lib/venv-paths')
 const bridge = require('../node/lib/python-bridge')
 const commandArgs = require('../node/lib/command-args')
+const runtime = require('../node/lib/node-runtime')
 
 describe('venv-paths', function () {
   it('resolves a relative name against the package root', function () {
@@ -256,6 +257,229 @@ describe('command-args', function () {
         () => commandArgs.resolveExecutable(base, '.'),
         /must be located inside/
       )
+    })
+  })
+})
+
+describe('node-runtime', function () {
+  function fakeNode(overrides) {
+    const node = {
+      statuses: [],
+      errors: [],
+      sent: [],
+      closeHandler: null,
+      status(value) {
+        node.statuses.push(value)
+      },
+      error(err, msg) {
+        node.errors.push([err, msg])
+      },
+      send(msg) {
+        node.sent.push(msg)
+      },
+      on(event, handler) {
+        if (event === 'close') {
+          node.closeHandler = handler
+        }
+      },
+    }
+    return Object.assign(node, overrides)
+  }
+
+  function fakeChild() {
+    return {
+      killed: false,
+      kill() {
+        this.killed = true
+      },
+    }
+  }
+
+  const fakeRED = {
+    util: {
+      cloneMessage: msg => JSON.parse(JSON.stringify(msg)),
+    },
+  }
+
+  describe('statusReporter', function () {
+    it('prefixes translated keys with the node namespace', function () {
+      const node = fakeNode()
+      runtime.statusReporter(node, 'venv').key('red', 'error')
+      assert.deepStrictEqual(node.statuses[0], {
+        fill: 'red',
+        shape: 'dot',
+        text: 'venv.error',
+      })
+    })
+
+    it('passes literal texts through unchanged', function () {
+      const node = fakeNode()
+      runtime.statusReporter(node, 'venv').text('blue', 'Running: 2')
+      assert.strictEqual(node.statuses[0].text, 'Running: 2')
+    })
+
+    it('clears the status', function () {
+      const node = fakeNode()
+      runtime.statusReporter(node, 'pip').clear()
+      assert.deepStrictEqual(node.statuses[0], {})
+    })
+  })
+
+  describe('resolveVenvForNode', function () {
+    it('reports a missing configuration node instead of throwing', function () {
+      const node = fakeNode()
+      const status = runtime.statusReporter(node, 'venv')
+      const RED = { nodes: { getNode: () => null } }
+      const paths = runtime.resolveVenvForNode(RED, node, {}, status)
+      assert.strictEqual(paths, null)
+      assert.strictEqual(node.statuses[0].text, 'venv.error')
+      assert.match(node.errors[0][0], /Missing virtual environment/)
+    })
+
+    it('reports an environment that is not ready', function () {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'venv-runtime-'))
+      try {
+        const node = fakeNode()
+        const status = runtime.statusReporter(node, 'venv')
+        const RED = { nodes: { getNode: () => ({ venvname: dir }) } }
+        const paths = runtime.resolveVenvForNode(RED, node, {}, status)
+        assert.strictEqual(paths, null)
+        assert.match(node.errors[0][0], /path\.json not found/)
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('returns the resolved paths of a ready environment', function () {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'venv-runtime-'))
+      try {
+        fs.writeFileSync(path.join(dir, 'path.json'), '{}')
+        const node = fakeNode()
+        const status = runtime.statusReporter(node, 'venv')
+        const RED = { nodes: { getNode: () => ({ venvname: dir }) } }
+        const paths = runtime.resolveVenvForNode(RED, node, {}, status)
+        assert.strictEqual(paths.venvDir, dir)
+        assert.strictEqual(node.errors.length, 0)
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+  })
+
+  describe('legacy callbacks', function () {
+    it('keeps the callbacks Node-RED 1.x provides', function () {
+      const node = fakeNode()
+      const send = () => {}
+      const done = () => {}
+      assert.strictEqual(runtime.legacySend(node, send), send)
+      assert.strictEqual(runtime.legacyDone(node, {}, done), done)
+    })
+
+    it('falls back to node.send and node.error', function () {
+      const node = fakeNode()
+      runtime.legacySend(node, undefined)({ payload: 1 })
+      assert.deepStrictEqual(node.sent, [{ payload: 1 }])
+
+      const msg = { payload: 1 }
+      runtime.legacyDone(node, msg, undefined)('boom')
+      assert.deepStrictEqual(node.errors, [['boom', msg]])
+    })
+
+    it('stays quiet when the fallback is called without an error', function () {
+      const node = fakeNode()
+      runtime.legacyDone(node, {}, undefined)()
+      assert.strictEqual(node.errors.length, 0)
+    })
+  })
+
+  describe('callOnce', function () {
+    it('lets only the first call through', function () {
+      let calls = 0
+      const guarded = runtime.callOnce(() => ++calls)
+      assert.strictEqual(guarded(), 1)
+      assert.strictEqual(guarded(), undefined)
+      assert.strictEqual(calls, 1)
+    })
+  })
+
+  describe('messageDeriver', function () {
+    it('clones the message so outputs stay independent', function () {
+      const msg = { payload: 'in', nested: { value: 1 } }
+      const derive = runtime.messageDeriver(fakeRED, msg)
+      const copy = derive('out')
+      copy.nested.value = 2
+      assert.strictEqual(copy.payload, 'out')
+      assert.strictEqual(msg.payload, 'in')
+      assert.strictEqual(msg.nested.value, 1)
+    })
+  })
+
+  describe('describeExit', function () {
+    it('reports the exit code on its own', function () {
+      assert.deepStrictEqual(runtime.describeExit(0, null), { code: 0 })
+    })
+
+    it('adds the signal when the process was killed', function () {
+      assert.deepStrictEqual(runtime.describeExit(null, 'SIGTERM'), {
+        code: null,
+        signal: 'SIGTERM',
+      })
+    })
+  })
+
+  describe('pickArgument', function () {
+    it('prefers the configured value', function () {
+      assert.strictEqual(runtime.pickArgument('requests', 'numpy'), 'requests')
+    })
+
+    it('falls back to the payload', function () {
+      assert.strictEqual(runtime.pickArgument('', 'numpy'), 'numpy')
+      assert.strictEqual(runtime.pickArgument(undefined, 42), '42')
+    })
+
+    it('returns an empty string when neither carries a value', function () {
+      assert.strictEqual(runtime.pickArgument('', undefined), '')
+      assert.strictEqual(runtime.pickArgument(undefined, ''), '')
+    })
+  })
+
+  describe('trackChildProcesses', function () {
+    it('kills the tracked processes when the node is closed', function () {
+      const node = fakeNode()
+      const active = runtime.trackChildProcesses(node)
+      const first = fakeChild()
+      const second = fakeChild()
+      active.add(first)
+      active.add(second)
+
+      let closed = false
+      node.closeHandler(true, () => {
+        closed = true
+      })
+
+      assert.strictEqual(first.killed, true)
+      assert.strictEqual(second.killed, true)
+      assert.strictEqual(active.size, 0)
+      assert.strictEqual(closed, true)
+    })
+
+    it('runs the marker callback before killing', function () {
+      const node = fakeNode()
+      const seen = []
+      const active = runtime.trackChildProcesses(node, child => {
+        seen.push(child.killed)
+      })
+      active.add(fakeChild())
+      node.closeHandler(true, () => {})
+      assert.deepStrictEqual(seen, [false])
+    })
+  })
+
+  describe('killAll', function () {
+    it('empties the set it is given', function () {
+      const active = new Set([fakeChild(), fakeChild()])
+      runtime.killAll(active)
+      assert.strictEqual(active.size, 0)
     })
   })
 })

@@ -1,49 +1,39 @@
 const child_process = require('child_process')
-const { readVenvPaths } = require('./lib/venv-paths')
 const { splitPackageNames } = require('./lib/command-args')
+const {
+  statusReporter,
+  resolveVenvForNode,
+  legacySend,
+  legacyDone,
+  callOnce,
+  messageDeriver,
+  pickArgument,
+  trackChildProcesses,
+} = require('./lib/node-runtime')
 
 module.exports = function (RED) {
   function Pip(config) {
     RED.nodes.createNode(this, config)
     const node = this
-    node.venvconfig = RED.nodes.getNode(config.venvconfig)
+    const status = statusReporter(node, 'pip')
 
-    if (!node.venvconfig) {
-      node.status({ fill: 'red', shape: 'dot', text: 'pip.error' })
-      node.error('Missing virtual environment configuration')
-      return
-    }
-
-    let venvPaths
-    try {
-      venvPaths = readVenvPaths(node.venvconfig.venvname)
-    } catch (e) {
-      node.status({ fill: 'red', shape: 'dot', text: 'pip.error' })
-      node.error(e.message)
+    const venvPaths = resolveVenvForNode(RED, node, config, status)
+    if (!venvPaths) {
       return
     }
 
     const pipPath = venvPaths.pip
     const tail = config.tail || false
-    const activeProcesses = new Set()
+
+    // Stop any pip process still running when the node is closed.
+    const activeProcesses = trackChildProcesses(node)
 
     node.on('input', function (msg, send, done) {
       // Node-RED 0.x compatibility
-      send = send || node.send.bind(node)
-      done =
-        done ||
-        function (err) {
-          if (err) {
-            node.error(err, msg)
-          }
-        }
+      send = legacySend(node, send)
+      done = legacyDone(node, msg, done)
 
-      let argument = ''
-      if (typeof config.arg !== 'undefined' && config.arg !== '') {
-        argument = String(config.arg)
-      } else if (typeof msg.payload !== 'undefined' && msg.payload !== '') {
-        argument = String(msg.payload)
-      }
+      let argument = pickArgument(config.arg, msg.payload)
 
       let args = []
       let runningText = ''
@@ -52,11 +42,7 @@ module.exports = function (RED) {
         case 'uninstall': {
           const packages = splitPackageNames(argument)
           if (packages.length === 0) {
-            node.status({
-              fill: 'red',
-              shape: 'dot',
-              text: 'pip.error-argument',
-            })
+            status.key('red', 'error-argument')
             done('No argument provided')
             return
           }
@@ -74,36 +60,30 @@ module.exports = function (RED) {
           runningText = 'Listing '
           break
         default:
-          node.status({ fill: 'red', shape: 'dot', text: 'pip.error' })
+          status.key('red', 'error')
           done(`Unknown pip command: ${config.action}`)
           return
       }
 
-      node.status({
-        fill: 'blue',
-        shape: 'dot',
-        text: runningText + argument,
-      })
+      status.text('blue', runningText + argument)
 
       let stdoutData = ''
       let stderrData = ''
-      let finished = false
 
       const pipProcess = child_process.spawn(pipPath, args)
       activeProcesses.add(pipProcess)
 
       // 'error' and 'close' can both fire; only the first one completes the message.
-      const finish = err => {
-        if (finished) {
-          return
-        }
-        finished = true
+      const finish = callOnce(err => {
         activeProcesses.delete(pipProcess)
         done(err)
-      }
+      })
+
+      /** Clone the incoming message and put `payload` on it. */
+      const derivedMessage = messageDeriver(RED, msg)
 
       pipProcess.on('error', err => {
-        node.status({ fill: 'red', shape: 'dot', text: 'pip.error' })
+        status.key('red', 'error')
         finish(err)
       })
 
@@ -112,7 +92,7 @@ module.exports = function (RED) {
 
         // In sequential output mode, forward each completed line right away
         if (tail && stdoutData.endsWith('\n')) {
-          send({ ...msg, payload: stdoutData })
+          send(derivedMessage(stdoutData))
           stdoutData = ''
         }
       })
@@ -123,7 +103,7 @@ module.exports = function (RED) {
 
       pipProcess.on('close', exitCode => {
         if (exitCode !== 0) {
-          node.status({ fill: 'red', shape: 'dot', text: 'pip.error' })
+          status.key('red', 'error')
           finish(
             `Error ${exitCode}${stderrData === '' ? '' : `: ${stderrData}`}`
           )
@@ -135,18 +115,9 @@ module.exports = function (RED) {
           msg.payload = stdoutData
           send(msg)
         }
-        node.status({})
+        status.clear()
         finish()
       })
-    })
-
-    // Stop any pip process still running when the node is closed
-    node.on('close', function (_removed, done) {
-      for (const pipProcess of activeProcesses) {
-        pipProcess.kill()
-      }
-      activeProcesses.clear()
-      done()
     })
   }
   RED.nodes.registerType('pip', Pip)

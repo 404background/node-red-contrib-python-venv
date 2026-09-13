@@ -1,7 +1,6 @@
 const fs = require('fs')
 const path = require('path')
 const child_process = require('child_process')
-const { readVenvPaths } = require('./lib/venv-paths')
 const {
   sanitizeBaseName,
   usesFlowContext,
@@ -11,6 +10,17 @@ const {
   writeChangedContext,
   buildBootstrapScript,
 } = require('./lib/python-bridge')
+const {
+  statusReporter,
+  resolveVenvForNode,
+  legacySend,
+  legacyDone,
+  callOnce,
+  messageDeriver,
+  describeExit,
+  trackChildProcesses,
+  killAll,
+} = require('./lib/node-runtime')
 
 function removeFileQuietly(filePath) {
   try {
@@ -35,20 +45,10 @@ module.exports = function (RED) {
   function Venv(config) {
     RED.nodes.createNode(this, config)
     const node = this
-    node.venvconfig = RED.nodes.getNode(config.venvconfig)
+    const status = statusReporter(node, 'venv')
 
-    if (!node.venvconfig) {
-      node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
-      node.error('Missing virtual environment configuration')
-      return
-    }
-
-    let venvPaths
-    try {
-      venvPaths = readVenvPaths(node.venvconfig.venvname)
-    } catch (e) {
-      node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
-      node.error(e.message)
+    const venvPaths = resolveVenvForNode(RED, node, config, status)
+    if (!venvPaths) {
       return
     }
 
@@ -58,7 +58,7 @@ module.exports = function (RED) {
 
     const sanitizedName = node.name ? sanitizeBaseName(node.name) : ''
     const baseName = sanitizedName !== '' ? sanitizedName : node.id
-    const scriptPath = path.join(venvDir, `${baseName}-${node.id}.py`)
+    const editorScriptPath = path.join(venvDir, `${baseName}-${node.id}.py`)
 
     const continuous = config.continuous || false
     const runningText = 'Running: '
@@ -66,39 +66,33 @@ module.exports = function (RED) {
     let runningScripts = 0
     let runCounter = 0
     let pythonProcess = undefined
-    const activeProcesses = new Set()
+
+    // Kill whatever is still running when the node is stopped.
+    const activeProcesses = trackChildProcesses(node, child => {
+      if (pythonProcess === child) {
+        pythonProcess = undefined
+      }
+    })
 
     node.standby = true
-    node.status({ fill: 'green', shape: 'dot', text: 'venv.standby' })
+    status.key('green', 'standby')
 
     function updateStatusAfterRun() {
       if (runningScripts > 0) {
-        node.status({
-          fill: 'blue',
-          shape: 'dot',
-          text: runningText + runningScripts,
-        })
+        status.text('blue', runningText + runningScripts)
       } else {
-        node.status({ fill: 'green', shape: 'dot', text: 'venv.standby' })
+        status.key('green', 'standby')
       }
     }
 
     node.on('input', function (msg, send, done) {
       // Node-RED 0.x compatibility
-      send = send || node.send.bind(node)
-      done =
-        done ||
-        function (err) {
-          if (err) {
-            node.error(err, msg)
-          }
-        }
+      send = legacySend(node, send)
+      done = legacyDone(node, msg, done)
 
-      // Terminate the running continuous process instead of starting a new one.
-      if (continuous && (msg.terminate === true || msg.kill === true)) {
-        if (pythonProcess) {
-          pythonProcess.kill()
-        }
+      // Terminate the running script(s) instead of starting another one.
+      if (msg.terminate === true || msg.kill === true) {
+        killAll(activeProcesses)
         done()
         return
       }
@@ -112,10 +106,9 @@ module.exports = function (RED) {
 
       node.standby = false
 
-      const code =
+      const hasEditorCode =
         typeof config.code !== 'undefined' && config.code !== ''
-          ? config.code
-          : (msg.code ?? '')
+      const code = hasEditorCode ? config.code : (msg.code ?? '')
 
       const withFlow = usesFlowContext(code)
       const withGlobal = usesGlobalContext(code)
@@ -125,32 +118,34 @@ module.exports = function (RED) {
       // Unique per invocation so concurrent messages cannot read each other's data.
       const runId = `${node.id}_${++runCounter}`
       const io = {
-        script: scriptPath,
+        // Code from the editor is the same for every message and keeps its
+        // readable file name. Code carried by the message differs per run, so
+        // it gets a private file that is cleaned up with the other run files.
+        script: hasEditorCode
+          ? editorScriptPath
+          : path.join(tempDir, `${runId}.py`),
         msg: path.join(tempDir, `${runId}_msg.json`),
         msgOut: path.join(tempDir, `${runId}_msg_out.json`),
+      }
+
+      const tempFiles = [io.msg, io.msgOut]
+      if (!hasEditorCode) {
+        tempFiles.push(io.script)
       }
       if (withFlow) {
         io.flow = path.join(tempDir, `${runId}_flow.json`)
         io.flowOut = path.join(tempDir, `${runId}_flow_out.json`)
+        tempFiles.push(io.flow, io.flowOut)
       }
       if (withGlobal) {
         io.global = path.join(tempDir, `${runId}_global.json`)
         io.globalOut = path.join(tempDir, `${runId}_global_out.json`)
+        tempFiles.push(io.global, io.globalOut)
       }
 
-      const tempKeys = [
-        'msg',
-        'msgOut',
-        'flow',
-        'flowOut',
-        'global',
-        'globalOut',
-      ]
       const cleanUpTempFiles = () => {
-        for (const key of tempKeys) {
-          if (io[key]) {
-            removeFileQuietly(io[key])
-          }
+        for (const filePath of tempFiles) {
+          removeFileQuietly(filePath)
         }
       }
 
@@ -160,7 +155,7 @@ module.exports = function (RED) {
 
       try {
         fs.mkdirSync(tempDir, { recursive: true })
-        fs.writeFileSync(scriptPath, code, { encoding: 'utf-8' })
+        fs.writeFileSync(io.script, code, { encoding: 'utf-8' })
         fs.writeFileSync(io.msg, stringifyWithoutCircularReferences(msg), {
           encoding: 'utf-8',
         })
@@ -188,7 +183,7 @@ module.exports = function (RED) {
       } catch (e) {
         cleanUpTempFiles()
         node.standby = true
-        node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
+        status.key('red', 'error')
         done(e)
         return
       }
@@ -197,18 +192,10 @@ module.exports = function (RED) {
       if (continuous) {
         // Disable stdout and stderr buffering
         args.push('-u')
-        node.status({
-          fill: 'blue',
-          shape: 'dot',
-          text: 'venv.running-continuous',
-        })
+        status.key('blue', 'running-continuous')
       } else {
         runningScripts++
-        node.status({
-          fill: 'blue',
-          shape: 'dot',
-          text: runningText + runningScripts,
-        })
+        status.text('blue', runningText + runningScripts)
       }
       args.push('-c', buildBootstrapScript(withFlow, withGlobal))
 
@@ -222,18 +209,13 @@ module.exports = function (RED) {
       let stdoutData = ''
       let stderrData = ''
       let rollingStderrData = ''
-      let finished = false
 
       const child = child_process.spawn(pythonPath, args, { env })
       pythonProcess = child
       activeProcesses.add(child)
 
-      // 'error' and 'exit' can both fire; only the first one completes the message.
-      const finish = err => {
-        if (finished) {
-          return
-        }
-        finished = true
+      // 'error' and 'close' can both fire; only the first one completes the message.
+      const finish = callOnce(err => {
         activeProcesses.delete(child)
         if (pythonProcess === child) {
           pythonProcess = undefined
@@ -241,22 +223,18 @@ module.exports = function (RED) {
         cleanUpTempFiles()
         node.standby = true
         done(err)
-      }
+      })
+
+      /** Clone the incoming message and put `payload` on it. */
+      const derivedMessage = messageDeriver(RED, msg)
 
       child.on('error', err => {
         if (!continuous) {
           runningScripts--
         }
-        node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
+        status.key('red', 'error')
         finish(err)
       })
-
-      /** Clone the incoming message and put `payload` on it. */
-      const derivedMessage = payload => {
-        const copy = RED.util.cloneMessage(msg)
-        copy.payload = payload
-        return copy
-      }
 
       child.stdout.on('data', chunk => {
         stdoutData += chunk.toString('utf8')
@@ -278,7 +256,9 @@ module.exports = function (RED) {
         }
       })
 
-      child.on('exit', (exitCode, signal) => {
+      // 'close' rather than 'exit', so that output written right before the
+      // process ended is still part of stdoutData / stderrData.
+      child.on('close', (exitCode, signal) => {
         if (!continuous) {
           runningScripts--
         }
@@ -304,40 +284,44 @@ module.exports = function (RED) {
         }
 
         // Third output always reports how the process ended, like the exec node.
-        const exitPayload = { code: exitCode }
-        if (signal !== null) {
-          exitPayload.signal = signal
-        }
-        const exitMessage = derivedMessage(exitPayload)
+        const exitMessage = derivedMessage(describeExit(exitCode, signal))
 
         // Flush output that was not newline terminated
         const stderrMessage =
           rollingStderrData === '' ? null : derivedMessage(rollingStderrData)
         rollingStderrData = ''
+        const stdoutTail = stdoutData
+        stdoutData = ''
 
         if (continuous) {
           send([
-            stdoutData === '' ? null : derivedMessage(stdoutData),
+            stdoutTail === '' ? null : derivedMessage(stdoutTail),
             stderrMessage,
             exitMessage,
           ])
-          stdoutData = ''
-          node.status(
-            child.killed
-              ? {
-                  fill: 'yellow',
-                  shape: 'dot',
-                  text: 'venv.terminate-continuous',
-                }
-              : { fill: 'green', shape: 'dot', text: 'venv.standby' }
-          )
+          // A restart has already put the status of its own process up.
+          if (pythonProcess === child) {
+            if (child.killed) {
+              status.key('yellow', 'terminate-continuous')
+            } else {
+              status.key('green', 'standby')
+            }
+          }
+          finish()
+          return
+        }
+
+        // Terminated on request: report how it ended without raising an error.
+        if (child.killed) {
+          status.key('yellow', 'terminated')
+          send([null, stderrMessage, exitMessage])
           finish()
           return
         }
 
         // A null signal with a non-zero code means the script itself failed.
         if (signal === null && exitCode !== 0) {
-          node.status({ fill: 'red', shape: 'dot', text: 'venv.error' })
+          status.key('red', 'error')
           // The first output stays quiet on failure so that flows which treat
           // an incoming message as success keep working.
           send([null, stderrMessage, exitMessage])
@@ -348,24 +332,14 @@ module.exports = function (RED) {
         }
 
         // Backward compat: stdout overrides msg.payload if non-empty
-        if (stdoutData) {
-          msg.payload = stdoutData
+        if (stdoutTail) {
+          msg.payload = stdoutTail
         }
         send([msg, stderrMessage, exitMessage])
         updateStatusAfterRun()
 
         finish()
       })
-    })
-
-    // Clean up any python process still running when the node is stopped
-    node.on('close', function (_removed, done) {
-      for (const child of activeProcesses) {
-        child.kill()
-      }
-      activeProcesses.clear()
-      pythonProcess = undefined
-      done()
     })
   }
 

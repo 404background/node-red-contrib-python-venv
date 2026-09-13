@@ -6,13 +6,12 @@
     "executable": "実行ファイル",
     "argument": "引数",
     "standby": "待機",
-    "running-continuous": "連続実行中",
-    "terminate-continuous": "連続実行終了",
+    "terminated": "実行終了",
     "executing": "実行中",
     "error": "エラー",
     "notFound": "ファイルが見つかりません",
     "output-stdout": "標準出力",
     "output-stderr": "標準エラー出力",
-    "output-code": "終了コード"
+    "output-code": "返却コード"
   }
 }

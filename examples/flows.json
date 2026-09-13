@@ -10,14 +10,18 @@
     "stdInData": false,
     "x": 480,
     "y": 580,
-    "wires": [["e26b10622c9e4ed0"]]
+    "wires": [["e26b10622c9e4ed0"], [], []]
   },
   {
     "id": "6e3a432dc0c104cd",
     "type": "inject",
     "z": "a649c4725172b4b5",
     "name": "",
-    "props": [{ "p": "payload" }],
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
     "repeat": "",
     "crontab": "",
     "once": false,
@@ -34,7 +38,13 @@
     "type": "inject",
     "z": "a649c4725172b4b5",
     "name": "terminate",
-    "props": [{ "p": "terminate", "v": "true", "vt": "bool" }],
+    "props": [
+      {
+        "p": "terminate",
+        "v": "true",
+        "vt": "bool"
+      }
+    ],
     "repeat": "",
     "crontab": "",
     "once": false,
@@ -87,7 +97,7 @@
     "code": "import requests\nurl = 'https://example.com/'\n    \ntry:\n    response = requests.get(url)\n\n    if response.status_code == 200:\n        print(response.text)\n    else:\n        print(f\"Failed to retrieve data. Status code: {response.status_code}\")\nexcept requests.RequestException as e:\n    print(f\"An error occurred: {e}\")",
     "x": 480,
     "y": 340,
-    "wires": [["2de174fd42629445", "c36a8bb2d0129579"]]
+    "wires": [["2de174fd42629445", "c36a8bb2d0129579"], [], []]
   },
   {
     "id": "5a7065e68ac8f989",
@@ -245,7 +255,7 @@
     "code": "print('hello, world!')",
     "x": 490,
     "y": 160,
-    "wires": [["5ce6cfc428388e96"]]
+    "wires": [["5ce6cfc428388e96"], [], []]
   },
   {
     "id": "4996c7a06636b063",
@@ -374,7 +384,7 @@
     "continuous": false,
     "x": 1140,
     "y": 220,
-    "wires": [["fb923f8204167fe8"]]
+    "wires": [["fb923f8204167fe8"], [], []]
   },
   {
     "id": "fb923f8204167fe8",
@@ -418,7 +428,7 @@
     "continuous": false,
     "x": 1120,
     "y": 280,
-    "wires": [["3085873240ab0527"]]
+    "wires": [["3085873240ab0527"], [], []]
   },
   {
     "id": "3085873240ab0527",
@@ -442,7 +452,11 @@
     "type": "inject",
     "z": "a649c4725172b4b5",
     "name": "",
-    "props": [{ "p": "payload" }],
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
     "repeat": "",
     "crontab": "",
     "once": false,
@@ -464,7 +478,7 @@
     "continuous": false,
     "x": 1160,
     "y": 400,
-    "wires": [["d15db7a00aa0ed2a"]]
+    "wires": [["d15db7a00aa0ed2a"], [], []]
   },
   {
     "id": "d2ebfecf16774a31",
@@ -494,7 +508,11 @@
     "type": "inject",
     "z": "a649c4725172b4b5",
     "name": "",
-    "props": [{ "p": "payload" }],
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
     "repeat": "",
     "crontab": "",
     "once": false,
@@ -547,7 +565,7 @@
     "continuous": false,
     "x": 1750,
     "y": 400,
-    "wires": [["acd9e2dc367e787a"]]
+    "wires": [["acd9e2dc367e787a"], [], []]
   },
   {
     "id": "38f638069838775b",
@@ -577,7 +595,11 @@
     "type": "inject",
     "z": "a649c4725172b4b5",
     "name": "",
-    "props": [{ "p": "payload" }],
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
     "repeat": "",
     "crontab": "",
     "once": false,
@@ -647,7 +669,7 @@
     "continuous": false,
     "x": 1130,
     "y": 160,
-    "wires": [["2a76d8f02d628db6"]]
+    "wires": [["2a76d8f02d628db6"], [], []]
   },
   {
     "id": "1505ef02f015e472",
@@ -655,9 +677,19 @@
     "z": "a649c4725172b4b5",
     "name": "",
     "props": [
-      { "p": "payload" },
-      { "p": "test", "v": "Test", "vt": "str" },
-      { "p": "hello", "v": "Hello!", "vt": "str" }
+      {
+        "p": "payload"
+      },
+      {
+        "p": "test",
+        "v": "Test",
+        "vt": "str"
+      },
+      {
+        "p": "hello",
+        "v": "Hello!",
+        "vt": "str"
+      }
     ],
     "repeat": "",
     "crontab": "",
@@ -680,7 +712,7 @@
     "continuous": true,
     "x": 1160,
     "y": 460,
-    "wires": [["79d60e97eff7cf75"]]
+    "wires": [["79d60e97eff7cf75"], [], []]
   },
   {
     "id": "b8a27ca359bfd915",
@@ -723,7 +755,7 @@
     "continuous": true,
     "x": 1750,
     "y": 460,
-    "wires": [["c348074cf35d7c34"]]
+    "wires": [["c348074cf35d7c34"], [], []]
   },
   {
     "id": "e25740a734d0542b",
@@ -783,7 +815,11 @@
     "continuous": false,
     "x": 470,
     "y": 740,
-    "wires": [["0d3dc955b62f5c9e", "7e6622bd1fd3d9f3", "08b62769e89be284"]]
+    "wires": [
+      ["0d3dc955b62f5c9e", "7e6622bd1fd3d9f3", "08b62769e89be284"],
+      [],
+      []
+    ]
   },
   {
     "id": "e4a4271bb1c7e41c",
@@ -810,7 +846,7 @@
     "continuous": false,
     "x": 610,
     "y": 740,
-    "wires": [["6d7a425bfcb1e260"]]
+    "wires": [["6d7a425bfcb1e260"], [], []]
   },
   {
     "id": "e02e7aa843559730",
@@ -839,7 +875,7 @@
     "continuous": false,
     "x": 470,
     "y": 800,
-    "wires": [["7e6622bd1fd3d9f3"]]
+    "wires": [["7e6622bd1fd3d9f3"], [], []]
   },
   {
     "id": "c02024db7a46d2ee",
@@ -866,7 +902,7 @@
     "continuous": false,
     "x": 610,
     "y": 800,
-    "wires": [["e02e7aa843559730"]]
+    "wires": [["e02e7aa843559730"], [], []]
   },
   {
     "id": "5d0376fa941f41d3",
@@ -895,7 +931,7 @@
     "continuous": false,
     "x": 470,
     "y": 860,
-    "wires": [["476d3bafeae2eae3", "7e6622bd1fd3d9f3"]]
+    "wires": [["476d3bafeae2eae3", "7e6622bd1fd3d9f3"], [], []]
   },
   {
     "id": "1e0c07861fedab56",
@@ -922,7 +958,7 @@
     "continuous": false,
     "x": 610,
     "y": 860,
-    "wires": [["5d0376fa941f41d3"]]
+    "wires": [["5d0376fa941f41d3"], [], []]
   },
   {
     "id": "08b62769e89be284",
@@ -964,7 +1000,7 @@
     "arguments": "'hello' --output hello.mp3",
     "x": 1110,
     "y": 800,
-    "wires": [["82c91547626cc9d8"]]
+    "wires": [["82c91547626cc9d8"], [], []]
   },
   {
     "id": "75e94bb3b7d30a54",
@@ -1039,7 +1075,7 @@
     "arguments": "'hello' --output hello.mp3",
     "x": 1110,
     "y": 740,
-    "wires": [["5f9c7ab08a3914f9"]]
+    "wires": [["5f9c7ab08a3914f9"], [], []]
   },
   {
     "id": "54ceaf4757158a78",
@@ -1083,7 +1119,7 @@
     "arguments": "list",
     "x": 1110,
     "y": 860,
-    "wires": [["3e2d8a9d8b977d4e"]]
+    "wires": [["3e2d8a9d8b977d4e"], ["c1f0a2b3d4e50031"], ["c1f0a2b3d4e50032"]]
   },
   {
     "id": "d8951248677d9f9d",
@@ -1104,7 +1140,7 @@
     "id": "3e2d8a9d8b977d4e",
     "type": "debug",
     "z": "a649c4725172b4b5",
-    "name": "debug 153",
+    "name": "stdout",
     "active": true,
     "tosidebar": true,
     "console": false,
@@ -1127,7 +1163,7 @@
     "arguments": "'hello' --output hello.mp3",
     "x": 1110,
     "y": 620,
-    "wires": [["df46d6bbfb93fa36"]]
+    "wires": [["df46d6bbfb93fa36"], [], []]
   },
   {
     "id": "62fcbb5b79d35161",
@@ -1311,6 +1347,333 @@
     "wires": []
   },
   {
+    "id": "c1f0a2b3d4e50001",
+    "type": "comment",
+    "z": "a649c4725172b4b5",
+    "name": "three outputs (stdout, stderr, return code)",
+    "info": "",
+    "x": 420,
+    "y": 960,
+    "wires": []
+  },
+  {
+    "id": "c1f0a2b3d4e50002",
+    "type": "inject",
+    "z": "a649c4725172b4b5",
+    "name": "",
+    "props": [],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 330,
+    "y": 1040,
+    "wires": [["c1f0a2b3d4e50003"]]
+  },
+  {
+    "id": "c1f0a2b3d4e50003",
+    "type": "venv",
+    "z": "a649c4725172b4b5",
+    "venvconfig": "07f9f0a14e9171d0",
+    "name": "stdout and stderr",
+    "code": "import sys\n\nprint('this goes to stdout')\nprint('this goes to stderr', file=sys.stderr)",
+    "continuous": false,
+    "x": 500,
+    "y": 1040,
+    "wires": [["c1f0a2b3d4e50004"], ["c1f0a2b3d4e50005"], ["c1f0a2b3d4e50006"]]
+  },
+  {
+    "id": "c1f0a2b3d4e50004",
+    "type": "debug",
+    "z": "a649c4725172b4b5",
+    "name": "stdout",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 740,
+    "y": 1000,
+    "wires": []
+  },
+  {
+    "id": "c1f0a2b3d4e50005",
+    "type": "debug",
+    "z": "a649c4725172b4b5",
+    "name": "stderr",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 740,
+    "y": 1040,
+    "wires": []
+  },
+  {
+    "id": "c1f0a2b3d4e50006",
+    "type": "debug",
+    "z": "a649c4725172b4b5",
+    "name": "return code",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 760,
+    "y": 1080,
+    "wires": []
+  },
+  {
+    "id": "c1f0a2b3d4e50011",
+    "type": "inject",
+    "z": "a649c4725172b4b5",
+    "name": "",
+    "props": [],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 330,
+    "y": 1160,
+    "wires": [["c1f0a2b3d4e50012"]]
+  },
+  {
+    "id": "c1f0a2b3d4e50012",
+    "type": "venv",
+    "z": "a649c4725172b4b5",
+    "venvconfig": "07f9f0a14e9171d0",
+    "name": "failing script",
+    "code": "print('printed before the error')\n\nraise RuntimeError('something went wrong')",
+    "continuous": false,
+    "x": 500,
+    "y": 1160,
+    "wires": [["c1f0a2b3d4e50013"], ["c1f0a2b3d4e50014"], ["c1f0a2b3d4e50015"]]
+  },
+  {
+    "id": "c1f0a2b3d4e50013",
+    "type": "debug",
+    "z": "a649c4725172b4b5",
+    "name": "stdout (not sent)",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 760,
+    "y": 1120,
+    "wires": []
+  },
+  {
+    "id": "c1f0a2b3d4e50014",
+    "type": "debug",
+    "z": "a649c4725172b4b5",
+    "name": "stderr",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 740,
+    "y": 1160,
+    "wires": []
+  },
+  {
+    "id": "c1f0a2b3d4e50015",
+    "type": "debug",
+    "z": "a649c4725172b4b5",
+    "name": "return code",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 760,
+    "y": 1200,
+    "wires": []
+  },
+  {
+    "id": "c1f0a2b3d4e50016",
+    "type": "catch",
+    "z": "a649c4725172b4b5",
+    "name": "",
+    "scope": ["c1f0a2b3d4e50012"],
+    "uncaught": false,
+    "x": 510,
+    "y": 1240,
+    "wires": [["c1f0a2b3d4e50017"]]
+  },
+  {
+    "id": "c1f0a2b3d4e50017",
+    "type": "debug",
+    "z": "a649c4725172b4b5",
+    "name": "catch",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 740,
+    "y": 1240,
+    "wires": []
+  },
+  {
+    "id": "c1f0a2b3d4e50021",
+    "type": "inject",
+    "z": "a649c4725172b4b5",
+    "name": "",
+    "props": [],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 330,
+    "y": 1360,
+    "wires": [["c1f0a2b3d4e50023"]]
+  },
+  {
+    "id": "c1f0a2b3d4e50022",
+    "type": "inject",
+    "z": "a649c4725172b4b5",
+    "name": "terminate",
+    "props": [
+      {
+        "p": "terminate",
+        "v": "true",
+        "vt": "bool"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 320,
+    "y": 1320,
+    "wires": [["c1f0a2b3d4e50023"]]
+  },
+  {
+    "id": "c1f0a2b3d4e50023",
+    "type": "venv",
+    "z": "a649c4725172b4b5",
+    "venvconfig": "07f9f0a14e9171d0",
+    "name": "stream output",
+    "code": "import sys\nimport time\n\nfor i in range(1, 11):\n    print(f'stdout {i}')\n    print(f'stderr {i}', file=sys.stderr)\n    time.sleep(1)",
+    "continuous": true,
+    "x": 510,
+    "y": 1340,
+    "wires": [["c1f0a2b3d4e50024"], ["c1f0a2b3d4e50025"], ["c1f0a2b3d4e50026"]]
+  },
+  {
+    "id": "c1f0a2b3d4e50024",
+    "type": "debug",
+    "z": "a649c4725172b4b5",
+    "name": "stdout",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 750,
+    "y": 1300,
+    "wires": []
+  },
+  {
+    "id": "c1f0a2b3d4e50025",
+    "type": "debug",
+    "z": "a649c4725172b4b5",
+    "name": "stderr",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 750,
+    "y": 1340,
+    "wires": []
+  },
+  {
+    "id": "c1f0a2b3d4e50026",
+    "type": "debug",
+    "z": "a649c4725172b4b5",
+    "name": "return code",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 770,
+    "y": 1380,
+    "wires": []
+  },
+  {
+    "id": "c1f0a2b3d4e50031",
+    "type": "debug",
+    "z": "a649c4725172b4b5",
+    "name": "stderr",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1290,
+    "y": 900,
+    "wires": []
+  },
+  {
+    "id": "c1f0a2b3d4e50032",
+    "type": "debug",
+    "z": "a649c4725172b4b5",
+    "name": "return code",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1310,
+    "y": 940,
+    "wires": []
+  },
+  {
     "id": "07f9f0a14e9171d0",
     "type": "venv-config",
     "venvname": "pyenv",
@@ -1320,6 +1683,8 @@
     "id": "d7998ddc646391c5",
     "type": "global-config",
     "env": [],
-    "modules": { "@background404/node-red-contrib-python-venv": "0.5.7" }
+    "modules": {
+      "@background404/node-red-contrib-python-venv": "0.6.1"
+    }
   }
 ]
