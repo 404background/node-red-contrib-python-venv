@@ -18,7 +18,7 @@ You can run python(.exe) or pip(.exe) in that environment.
 
 ## Requirements
 
-Python 3 with the `venv` and `pip` modules must be available on the system.
+Python 3 with the `venv` and `pip` modules must be available on the system to create virtual environments. They are not needed to use an [existing virtual environment](#using-an-existing-virtual-environment).
 
 - **Debian/Ubuntu:** `sudo apt install python3-venv python3-pip`
 - **Windows:** install Python from [python.org](https://www.python.org/) (the Microsoft Store version may not include `venv`)
@@ -131,17 +131,17 @@ Install the Python version you want to use in advance.
 
 #### Using an existing virtual environment
 
-If the venv Name points at a directory that is already a Python virtual environment (it contains `pyvenv.cfg`), that environment is adopted instead of a new one being created. Only a small `path.json` file is added to it, so environments created outside of Node-RED can be used as they are.
+If the venv Name points at a directory that is already a Python virtual environment (it contains `pyvenv.cfg`), that environment is used instead of a new one being created. Nothing is written into it, and neither the system Python nor its venv module is needed, so an environment created with `python -m venv` or `uv venv` outside of Node-RED can be used as it is. The pip node runs `python -m pip`, so it also works in an environment that has no `pip` executable, as long as pip is installed as a module.
 
 If the directory exists but is not a virtual environment, nothing is created and an error is reported.
 
 #### Deleting a configuration node
 
-When a configuration node is deleted, the virtual environment is removed **only if this node created it**. A marker file (`.node-red-venv-created`) written at creation time is what distinguishes the two, so an environment you adopted from outside is never deleted.
+When a configuration node is deleted, the virtual environment is removed **only if this node created it**. A marker file (`.node-red-venv-created`) written at creation time is what distinguishes the two, so an environment created outside of Node-RED is never deleted. Environments created by version 0.6.0 or earlier have no marker either, so they are kept as well; delete such a folder yourself if you no longer need it.
 
 Even then, only the entries a virtual environment is made of are removed (`Scripts`/`bin`, `Lib`/`lib`, `Include`/`include`, `share`, `Temp`, `pyvenv.cfg`, `path.json`) together with the `.py` files the venv nodes generated. Any other file you put in the folder is left untouched, and the folder itself is only removed once it is empty.
 
-The absolute path that will be affected is shown in the configuration dialog, and a warning notification is displayed when you delete the node.
+The absolute path that will be affected is shown in the configuration dialog, and a warning notification is displayed when you delete a node whose environment will be removed.
 
 ## Development
 

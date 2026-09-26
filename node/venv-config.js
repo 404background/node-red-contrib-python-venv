@@ -1,10 +1,15 @@
 const path = require('path')
 const fs = require('fs')
 const { spawnSync } = require('child_process')
-const { PACKAGE_ROOT, resolveVenvDir } = require('./lib/venv-paths')
+const {
+  PACKAGE_ROOT,
+  CREATED_MARKER,
+  resolveVenvDir,
+  isVirtualEnv,
+  isCreatedByNode,
+} = require('./lib/venv-paths')
 
 const SETUP_SCRIPT = path.join(PACKAGE_ROOT, 'setup.py')
-const CREATED_MARKER = '.node-red-venv-created'
 const COMMAND_TIMEOUT_MS = 10000
 
 // Files and directories a virtual environment created by this node may contain.
@@ -188,6 +193,30 @@ module.exports = function (RED) {
 
     const venvPath = resolveVenvDir(this.venvname)
 
+    this.on('close', function (removed, done) {
+      // Only an environment this node created is removed; one created
+      // outside of Node-RED has no marker and is always left alone.
+      if (removed && isCreatedByNode(venvPath) && isVirtualEnv(venvPath)) {
+        // Refuse to touch a filesystem root or a top level directory.
+        const depth = venvPath.split(path.sep).filter(Boolean).length
+        if (depth >= 2) {
+          try {
+            removeCreatedVenv(venvPath)
+          } catch (e) {
+            node.warn(`Failed to remove virtual environment: ${e.message}`)
+          }
+        }
+      }
+      done()
+    })
+
+    // An existing virtual environment, created by this node earlier or
+    // outside of Node-RED, is used as it is. Neither the system Python nor
+    // its venv module is needed for that.
+    if (isVirtualEnv(venvPath)) {
+      return
+    }
+
     // Check environment before attempting to create venv
     const envCheck = checkPythonEnvironment(this.version)
 
@@ -249,23 +278,6 @@ module.exports = function (RED) {
         )
       }
     }
-
-    this.on('close', function (removed, done) {
-      if (removed) {
-        const markerFile = path.join(venvPath, CREATED_MARKER)
-        const hasPyvenvCfg = fs.existsSync(path.join(venvPath, 'pyvenv.cfg'))
-        // Refuse to touch a filesystem root or a top level directory.
-        const depth = venvPath.split(path.sep).filter(Boolean).length
-        if (fs.existsSync(markerFile) && hasPyvenvCfg && depth >= 2) {
-          try {
-            removeCreatedVenv(venvPath)
-          } catch (e) {
-            node.warn(`Failed to remove virtual environment: ${e.message}`)
-          }
-        }
-      }
-      done()
-    })
   }
 
   RED.httpAdmin.get(
@@ -281,7 +293,11 @@ module.exports = function (RED) {
         res.status(400).json({ error: e.message })
         return
       }
-      res.json({ path: absolutePath })
+      res.json({
+        path: absolutePath,
+        // Tells the editor whether deleting the node removes the folder.
+        created: isCreatedByNode(absolutePath) && isVirtualEnv(absolutePath),
+      })
     }
   )
 

@@ -26,10 +26,44 @@ describe('venv-paths', function () {
     assert.throws(() => venvPaths.resolveVenvDir('   '), /not configured/)
   })
 
-  it('reports a virtual environment without path.json', function () {
+  it('reports a directory that is not a virtual environment', function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'venv-paths-'))
     try {
-      assert.throws(() => venvPaths.readVenvPaths(dir), /path\.json not found/)
+      assert.throws(() => venvPaths.readVenvPaths(dir), /pyvenv\.cfg not found/)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('uses a venv created elsewhere without path.json and writes nothing', function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'venv-paths-'))
+    try {
+      fs.writeFileSync(path.join(dir, 'pyvenv.cfg'), 'home = /usr/bin\n')
+      const resolved = venvPaths.readVenvPaths(dir)
+      assert.deepStrictEqual(resolved, {
+        venvDir: dir,
+        python: path.normalize(
+          path.join(dir, venvPaths.DEFAULT_RELATIVE_PATHS.python)
+        ),
+        exec: path.normalize(
+          path.join(dir, venvPaths.DEFAULT_RELATIVE_PATHS.exec)
+        ),
+      })
+      assert.deepStrictEqual(fs.readdirSync(dir), ['pyvenv.cfg'])
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('tells a venv created by the node from one created elsewhere', function () {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'venv-paths-'))
+    try {
+      assert.strictEqual(venvPaths.isVirtualEnv(dir), false)
+      fs.writeFileSync(path.join(dir, 'pyvenv.cfg'), '')
+      assert.strictEqual(venvPaths.isVirtualEnv(dir), true)
+      assert.strictEqual(venvPaths.isCreatedByNode(dir), false)
+      fs.writeFileSync(path.join(dir, venvPaths.CREATED_MARKER), '')
+      assert.strictEqual(venvPaths.isCreatedByNode(dir), true)
     } finally {
       fs.rmSync(dir, { recursive: true, force: true })
     }
@@ -344,7 +378,7 @@ describe('node-runtime', function () {
         const RED = { nodes: { getNode: () => ({ venvname: dir }) } }
         const paths = runtime.resolveVenvForNode(RED, node, {}, status)
         assert.strictEqual(paths, null)
-        assert.match(node.errors[0][0], /path\.json not found/)
+        assert.match(node.errors[0][0], /pyvenv\.cfg not found/)
       } finally {
         fs.rmSync(dir, { recursive: true, force: true })
       }

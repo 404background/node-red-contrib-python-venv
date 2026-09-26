@@ -20,33 +20,22 @@ else:
     venvPath = os.path.join(absDir, venvName)
 
 if os.path.isdir(venvPath):
-    # If path.json already exists, nothing to do
-    pathJsonFile = os.path.join(venvPath, 'path.json')
-    if os.path.isfile(pathJsonFile):
+    # A virtual environment is used as it is, whoever created it. Nothing is
+    # written into one created outside of Node-RED; the nodes find its
+    # interpreter from the standard venv layout.
+    if os.path.isfile(os.path.join(venvPath, 'pyvenv.cfg')) or os.path.isfile(os.path.join(venvPath, 'path.json')):
         print(f'{venvName} already exists.')
         sys.exit()
 
-    # Existing directory without path.json — check if it's a valid venv before adopting
-    if not os.path.isfile(os.path.join(venvPath, 'pyvenv.cfg')):
-        print(f'ERROR: {venvName} exists but is not a Python virtual environment (pyvenv.cfg not found).', file=sys.stderr)
-        sys.exit(1)
+    print(f'ERROR: {venvName} exists but is not a Python virtual environment (pyvenv.cfg not found).', file=sys.stderr)
+    sys.exit(1)
 
-    print(f'{venvName} already exists. Creating path.json for existing environment.')
-    if os.name == 'nt':
-        path = {
-            'NODE_PYENV_PYTHON': 'Scripts/python.exe',
-            'NODE_PYENV_PIP': 'Scripts/pip.exe',
-            'NODE_PYENV_EXEC': 'Scripts/'
-        }
-    else:
-        path = {
-            'NODE_PYENV_PYTHON': 'bin/python',
-            'NODE_PYENV_PIP': 'bin/pip',
-            'NODE_PYENV_EXEC': 'bin/'
-        }
-    with open(pathJsonFile, 'w') as f:
-        json.dump(path, f, indent=4)
-    sys.exit()
+def markCreated():
+    # Marks the venv as created by this node, which is what allows it to be
+    # removed when its configuration node is deleted. Written right after the
+    # venv exists so an interrupted setup is still cleaned up.
+    with open(os.path.join(venvPath, '.node-red-venv-created'), 'w') as f:
+        f.write('')
 
 # Check if venv module is available
 try:
@@ -92,13 +81,13 @@ if os.name == 'nt':
     if result.returncode != 0:
         print('ERROR: Failed to create virtual environment.', file=sys.stderr)
         sys.exit(1)
+    markCreated()
     # Try to upgrade pip, but don't fail if pip isn't available
     pip_result = subprocess.run([os.path.join(venvPath, 'Scripts', 'python.exe'), '-m', 'pip', 'install', '--upgrade', 'pip'])
     if pip_result.returncode != 0:
         print('WARNING: Failed to upgrade pip. pip may not be available in the virtual environment.', file=sys.stderr)
     path = {
         'NODE_PYENV_PYTHON': 'Scripts/python.exe',
-        'NODE_PYENV_PIP': 'Scripts/pip.exe',
         'NODE_PYENV_EXEC': 'Scripts/'
     }
 else:
@@ -110,19 +99,15 @@ else:
     if result.returncode != 0:
         print('ERROR: Failed to create virtual environment.', file=sys.stderr)
         sys.exit(1)
+    markCreated()
     # Try to upgrade pip, but don't fail if pip isn't available
     pip_result = subprocess.run([os.path.join(venvPath, 'bin', 'python'), '-m', 'pip', 'install', '--upgrade', 'pip'])
     if pip_result.returncode != 0:
         print('WARNING: Failed to upgrade pip in virtual environment.', file=sys.stderr)
     path = {
         'NODE_PYENV_PYTHON': 'bin/python',
-        'NODE_PYENV_PIP': 'bin/pip',
         'NODE_PYENV_EXEC': 'bin/'
     }
 
 with open(os.path.join(venvPath, 'path.json'), 'w') as f:
     json.dump(path, f, indent=4)
-
-# Marker to indicate this venv was created by this node (used for safe cleanup)
-with open(os.path.join(venvPath, '.node-red-venv-created'), 'w') as f:
-    f.write('')

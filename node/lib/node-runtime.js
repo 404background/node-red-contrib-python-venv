@@ -37,7 +37,7 @@ function statusReporter(node, prefix) {
  * @param {object} node
  * @param {object} config
  * @param {{key: (fill: string, key: string) => void}} status
- * @returns {{venvDir: string, python: string, pip: string, exec: string}|null}
+ * @returns {{venvDir: string, python: string, exec: string}|null}
  */
 function resolveVenvForNode(RED, node, config, status) {
   node.venvconfig = RED.nodes.getNode(config.venvconfig)

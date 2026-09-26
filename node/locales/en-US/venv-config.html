@@ -10,11 +10,12 @@
   <h3>Using an existing virtual environment</h3>
   <p>
     If the venv Name points at a directory that already is a Python virtual
-    environment (it contains <code>pyvenv.cfg</code>), that environment is
-    adopted instead of a new one being created. Only a small
-    <code>path.json</code> file is added to it, so environments created outside
-    of Node-RED can be used as they are. If the directory exists but is not a
-    virtual environment, nothing is created and an error is reported.
+    environment (it contains <code>pyvenv.cfg</code>), that environment is used
+    instead of a new one being created. Nothing is written into it, and neither
+    the system Python nor its venv module is needed, so an environment created
+    with <code>python -m venv</code> or <code>uv venv</code> outside of Node-RED
+    can be used as it is. If the directory exists but is not a virtual
+    environment, nothing is created and an error is reported.
   </p>
   <h3>Deleting this node</h3>
   <p>
@@ -28,13 +29,15 @@
     together with the <code>.py</code> files the venv nodes generated. Any other
     file you put in the folder is left untouched, and the folder itself is only
     removed once it is empty. The absolute path that will be affected is shown
-    below.
+    below, and a warning is displayed when you delete a node whose environment
+    will be removed.
   </p>
   <h3>Prerequisites</h3>
   <p>
-    This node requires <code>python3-venv</code> and <code>pip</code> to be
-    installed on the system. If they are not available, a warning will be
-    displayed in the configuration dialog.
+    To create a new virtual environment, this node requires
+    <code>python3-venv</code> and <code>pip</code> to be installed on the
+    system. If they are not available, a warning will be displayed in the
+    configuration dialog.
   </p>
   <ul>
     <li>

@@ -117,7 +117,9 @@
     },
     oneditdelete: function () {
       const node = this
-      if (node._venvAbsolutePath) {
+      // A virtual environment created outside of Node-RED is never removed,
+      // so only warn when deploying the deletion actually removes the folder.
+      if (node._venvAbsolutePath && node._venvCreated) {
         RED.notify(
           node._('venv-config.alert-delete', { path: node._venvAbsolutePath }),
           { type: 'warning', timeout: 8000 }
@@ -132,6 +134,7 @@
         .done(function (data) {
           $('#venv-config-path').text(data.path)
           node._venvAbsolutePath = data.path
+          node._venvCreated = data.created === true
         })
         .fail(function () {
           $('#venv-config-path').text('Path information not available')
@@ -143,6 +146,7 @@
           .done(function (data) {
             $('#venv-config-path').text(data.path)
             node._venvAbsolutePath = data.path
+            node._venvCreated = data.created === true
           })
           .fail(function () {
             $('#venv-config-path').text('Path information not available')

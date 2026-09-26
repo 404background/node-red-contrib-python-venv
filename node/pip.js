@@ -22,7 +22,10 @@ module.exports = function (RED) {
       return
     }
 
-    const pipPath = venvPaths.pip
+    // pip is run as a module of the venv interpreter, so it works in an
+    // environment that has no pip executable (e.g. one made by `uv venv`) and
+    // lets `install --upgrade pip` replace pip itself on Windows.
+    const pythonPath = venvPaths.python
     const tail = config.tail || false
 
     // Stop any pip process still running when the node is closed.
@@ -70,7 +73,7 @@ module.exports = function (RED) {
       let stdoutData = ''
       let stderrData = ''
 
-      const pipProcess = child_process.spawn(pipPath, args)
+      const pipProcess = child_process.spawn(pythonPath, ['-m', 'pip', ...args])
       activeProcesses.add(pipProcess)
 
       // 'error' and 'close' can both fire; only the first one completes the message.
