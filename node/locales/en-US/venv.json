@@ -12,6 +12,7 @@
     "terminated": "Terminated",
     "output-stdout": "stdout",
     "output-stderr": "stderr",
-    "output-code": "return code"
+    "output-code": "return code",
+    "preparing": "Preparing venv"
   }
 }

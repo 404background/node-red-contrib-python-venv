@@ -3,7 +3,7 @@ const child_process = require('child_process')
 const { parseArguments, resolveExecutable } = require('./lib/command-args')
 const {
   statusReporter,
-  resolveVenvForNode,
+  whenVenvReady,
   legacySend,
   legacyDone,
   callOnce,
@@ -20,22 +20,31 @@ module.exports = function (RED) {
     const node = this
     const status = statusReporter(node, 'venv-exec')
 
-    const venvPaths = resolveVenvForNode(RED, node, config, status)
-    if (!venvPaths) {
-      return
-    }
-
-    const execDir = venvPaths.exec
+    let execDir = null
+    const venvReady = whenVenvReady(RED, node, config, status).then(
+      venvPaths => {
+        if (venvPaths) {
+          execDir = venvPaths.exec
+          status.key('green', 'standby')
+        }
+        return venvPaths
+      }
+    )
 
     // Kill whatever is still running when the node is stopped.
     const activeProcesses = trackChildProcesses(node)
 
-    status.key('green', 'standby')
-
-    node.on('input', function (msg, send, done) {
+    node.on('input', async function (msg, send, done) {
       // Node-RED 0.x compatibility
       send = legacySend(node, send)
       done = legacyDone(node, msg, done)
+
+      // Without an environment there is nothing to run; the reason has
+      // already been reported on the node.
+      if (!(await venvReady)) {
+        done()
+        return
+      }
 
       if (msg.terminate === true || msg.kill === true) {
         // Every process this node started is stopped, whichever message asked

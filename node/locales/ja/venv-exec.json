@@ -12,6 +12,7 @@
     "notFound": "ファイルが見つかりません",
     "output-stdout": "標準出力",
     "output-stderr": "標準エラー出力",
-    "output-code": "返却コード"
+    "output-code": "返却コード",
+    "preparing": "仮想環境を準備中"
   }
 }

@@ -57,6 +57,27 @@ function resolveVenvForNode(RED, node, config, status) {
 }
 
 /**
+ * Resolve the virtual environment once its configuration node has finished
+ * creating it. The configuration node creates a new environment in the
+ * background and exposes the run as `ready`; until it settles the node shows
+ * that it is preparing, and messages wait for the same promise.
+ * @param {object} RED
+ * @param {object} node
+ * @param {object} config
+ * @param {{key: (fill: string, key: string) => void}} status
+ * @returns {Promise<{venvDir: string, python: string, exec: string}|null>}
+ */
+function whenVenvReady(RED, node, config, status) {
+  const venvconfig = RED.nodes.getNode(config.venvconfig)
+  const ready = venvconfig && venvconfig.ready
+  if (!ready) {
+    return Promise.resolve(resolveVenvForNode(RED, node, config, status))
+  }
+  status.key('yellow', 'preparing')
+  return ready.then(() => resolveVenvForNode(RED, node, config, status))
+}
+
+/**
  * Node-RED 0.x does not hand a `send` to the input handler.
  * @param {object} node
  * @param {Function} [send]
@@ -184,6 +205,7 @@ function killAll(active, beforeKill) {
 module.exports = {
   statusReporter,
   resolveVenvForNode,
+  whenVenvReady,
   legacySend,
   legacyDone,
   callOnce,

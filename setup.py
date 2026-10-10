@@ -1,6 +1,7 @@
 import subprocess
 import os
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -10,7 +11,12 @@ if len(sys.argv) < 2 or sys.argv[1].strip() == '':
     sys.exit(2)
 
 venvName = sys.argv[1]
-version = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2].strip() != '' else None
+version = sys.argv[2].strip() if len(sys.argv) > 2 and sys.argv[2].strip() != '' else None
+
+# The version becomes part of an interpreter name ("python3.11", "py -3.11").
+if version is not None and not re.fullmatch(r'\d+(\.\d+){0,2}', version):
+    print(f'ERROR: invalid Python version: {version}', file=sys.stderr)
+    sys.exit(2)
 
 absDir = os.path.dirname(os.path.abspath(__file__))
 

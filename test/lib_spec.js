@@ -293,6 +293,27 @@ describe('command-args', function () {
       )
     })
   })
+
+  describe('normalizePythonVersion', function () {
+    it('treats an empty or default version as none', function () {
+      assert.strictEqual(commandArgs.normalizePythonVersion(undefined), '')
+      assert.strictEqual(commandArgs.normalizePythonVersion(''), '')
+      assert.strictEqual(commandArgs.normalizePythonVersion('default'), '')
+    })
+
+    it('accepts major, minor and patch versions', function () {
+      assert.strictEqual(commandArgs.normalizePythonVersion('3'), '3')
+      assert.strictEqual(commandArgs.normalizePythonVersion(' 3.11 '), '3.11')
+      assert.strictEqual(commandArgs.normalizePythonVersion('3.11.4'), '3.11.4')
+    })
+
+    it('rejects anything a shell could interpret', function () {
+      const values = ['3; rm -rf ~', '3.11 && id', '$(id)', '3\nid', 'abc']
+      for (const value of values) {
+        assert.strictEqual(commandArgs.normalizePythonVersion(value), null)
+      }
+    })
+  })
 })
 
 describe('node-runtime', function () {
@@ -392,6 +413,40 @@ describe('node-runtime', function () {
         const status = runtime.statusReporter(node, 'venv')
         const RED = { nodes: { getNode: () => ({ venvname: dir }) } }
         const paths = runtime.resolveVenvForNode(RED, node, {}, status)
+        assert.strictEqual(paths.venvDir, dir)
+        assert.strictEqual(node.errors.length, 0)
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+  })
+
+  describe('whenVenvReady', function () {
+    it('resolves at once when nothing is being created', async function () {
+      const node = fakeNode()
+      const status = runtime.statusReporter(node, 'venv')
+      const RED = { nodes: { getNode: () => null } }
+      const paths = await runtime.whenVenvReady(RED, node, {}, status)
+      assert.strictEqual(paths, null)
+      assert.strictEqual(node.statuses[0].text, 'venv.error')
+    })
+
+    it('shows preparing and waits for the configuration node', async function () {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'venv-runtime-'))
+      try {
+        let finish
+        const ready = new Promise(resolve => {
+          finish = resolve
+        })
+        const node = fakeNode()
+        const status = runtime.statusReporter(node, 'venv')
+        const RED = { nodes: { getNode: () => ({ venvname: dir, ready }) } }
+        const pending = runtime.whenVenvReady(RED, node, {}, status)
+        assert.strictEqual(node.statuses[0].text, 'venv.preparing')
+        // The environment appears while the configuration node creates it.
+        fs.writeFileSync(path.join(dir, 'path.json'), '{}')
+        finish()
+        const paths = await pending
         assert.strictEqual(paths.venvDir, dir)
         assert.strictEqual(node.errors.length, 0)
       } finally {

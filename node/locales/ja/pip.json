@@ -6,6 +6,7 @@
     "argument": "引数",
     "tail": "順次出力",
     "error-argument": "引数がありません",
-    "error": "エラー"
+    "error": "エラー",
+    "preparing": "仮想環境を準備中"
   }
 }

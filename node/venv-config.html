@@ -63,7 +63,16 @@
     category: 'config',
     defaults: {
       venvname: { value: 'pyenv', required: true },
-      version: { value: 'default' },
+      version: {
+        value: 'default',
+        // Same rule as the runtime: the version ends up in a command line.
+        validate: function (v) {
+          return (
+            v === undefined ||
+            /^(default|\d+(\.\d+){0,2})?$/.test(String(v).trim())
+          )
+        },
+      },
     },
     label: function () {
       const version = this.version || 'default'
@@ -197,6 +206,11 @@
         $('#venv-config-alerts').empty()
 
         checkDuplicate()
+
+        // A malformed version is rejected by the runtime and marked invalid.
+        if (!/^(default|\d+(\.\d+){0,2})?$/.test(version.trim())) {
+          return
+        }
 
         $.getJSON('venvconfig/check', { version: version }).done(
           function (data) {

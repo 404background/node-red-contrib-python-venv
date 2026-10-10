@@ -1,6 +1,6 @@
 const path = require('path')
 const fs = require('fs')
-const { spawnSync } = require('child_process')
+const { spawn, spawnSync } = require('child_process')
 const {
   PACKAGE_ROOT,
   CREATED_MARKER,
@@ -8,8 +8,14 @@ const {
   isVirtualEnv,
   isCreatedByNode,
 } = require('./lib/venv-paths')
+const { normalizePythonVersion } = require('./lib/command-args')
 
 const SETUP_SCRIPT = path.join(PACKAGE_ROOT, 'setup.py')
+
+// setup.py runs in the background and outlives a redeploy. Keyed by venv
+// path, so the configuration node started by the next deploy waits for the
+// same run instead of starting a second one on the same folder.
+const pendingSetups = new Map()
 const COMMAND_TIMEOUT_MS = 10000
 
 // Files and directories a virtual environment created by this node may contain.
@@ -76,7 +82,15 @@ function checkPythonEnvironment(version) {
     details: [],
   }
 
-  let launcher = resolvePythonLauncher(version)
+  // The version becomes part of a command line run through a shell, so only a
+  // well formed one gets that far.
+  const normalized = normalizePythonVersion(version)
+  if (normalized === null) {
+    result.details.push(`Invalid Python version: ${String(version)}`)
+    return result
+  }
+
+  let launcher = resolvePythonLauncher(normalized)
 
   // On Windows, avoid shell: true to prevent cmd.exe from splitting -c arguments on spaces.
   // On Linux/macOS, use shell: true so PATH is resolved correctly (e.g. when running as a service).
@@ -191,9 +205,23 @@ module.exports = function (RED) {
       return
     }
 
+    const version = normalizePythonVersion(this.version)
+    if (version === null) {
+      node.warn(
+        `Invalid Python version "${this.version}". Use a version such as 3 or 3.11.`
+      )
+      return
+    }
+
     const venvPath = resolveVenvDir(this.venvname)
 
     this.on('close', function (removed, done) {
+      // A redeploy lets a running setup finish; deleting the node stops it.
+      const pending = pendingSetups.get(venvPath)
+      if (removed && pending) {
+        pending.child.kill()
+        pendingSetups.delete(venvPath)
+      }
       // Only an environment this node created is removed; one created
       // outside of Node-RED has no marker and is always left alone.
       if (removed && isCreatedByNode(venvPath) && isVirtualEnv(venvPath)) {
@@ -213,12 +241,18 @@ module.exports = function (RED) {
     // An existing virtual environment, created by this node earlier or
     // outside of Node-RED, is used as it is. Neither the system Python nor
     // its venv module is needed for that.
-    if (isVirtualEnv(venvPath)) {
+    if (isVirtualEnv(venvPath) && !pendingSetups.has(venvPath)) {
+      return
+    }
+
+    // Still being created by the previous deploy.
+    if (pendingSetups.has(venvPath)) {
+      this.ready = pendingSetups.get(venvPath).ready
       return
     }
 
     // Check environment before attempting to create venv
-    const envCheck = checkPythonEnvironment(this.version)
+    const envCheck = checkPythonEnvironment(version)
 
     if (!envCheck.python) {
       node.warn(
@@ -256,27 +290,56 @@ module.exports = function (RED) {
       // requested version itself through the Windows launcher.
       const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
       const args = [SETUP_SCRIPT, this.venvname]
-      if (
-        typeof this.version === 'string' &&
-        this.version !== '' &&
-        this.version !== 'default'
-      ) {
-        args.push(this.version)
+      if (version !== '') {
+        args.push(version)
       }
+
+      // Creating the environment and upgrading pip can take minutes. It runs
+      // in the background so that the deploy (and the whole runtime) is not
+      // blocked; the venv, pip and venv-exec nodes wait for `ready`.
       // Arguments are passed as an array so that spaces in the package path or
       // in the venv name cannot be reinterpreted by a shell.
-      const setup = spawnSync(pythonCmd, args, { encoding: 'utf-8' })
-      if (setup.error) {
-        node.warn(
-          `Failed to create virtual environment: ${setup.error.message}`
-        )
-      } else if (setup.status !== 0) {
-        const detail = (setup.stderr || '').trim()
-        node.warn(
-          `Failed to create virtual environment (exit code ${setup.status})` +
-            (detail === '' ? '' : `: ${detail}`)
-        )
-      }
+      let child
+      const ready = new Promise(resolve => {
+        let stderr = ''
+        child = spawn(pythonCmd, args)
+        child.stdout.on('data', () => {})
+        child.stderr.on('data', chunk => {
+          stderr += chunk.toString('utf8')
+        })
+        // 'error' and 'close' can both fire; only the first one settles.
+        let settled = false
+        const settle = message => {
+          if (settled) {
+            return
+          }
+          settled = true
+          if (pendingSetups.get(venvPath)?.child === child) {
+            pendingSetups.delete(venvPath)
+          }
+          if (message) {
+            node.warn(message)
+          }
+          resolve()
+        }
+        child.on('error', err => {
+          settle(`Failed to create virtual environment: ${err.message}`)
+        })
+        child.on('close', (code, signal) => {
+          // A signal means the node was deleted, which is not a failure.
+          if (code === 0 || signal !== null) {
+            settle()
+          } else {
+            const detail = stderr.trim()
+            settle(
+              `Failed to create virtual environment (exit code ${code})` +
+                (detail === '' ? '' : `: ${detail}`)
+            )
+          }
+        })
+      })
+      pendingSetups.set(venvPath, { child, ready })
+      this.ready = ready
     }
   }
 
@@ -306,6 +369,10 @@ module.exports = function (RED) {
     RED.auth.needsPermission('venvconfig.read'),
     function (req, res) {
       const version = req.query.version || ''
+      if (normalizePythonVersion(version) === null) {
+        res.status(400).json({ error: 'Invalid Python version' })
+        return
+      }
       res.json(checkPythonEnvironment(version))
     }
   )

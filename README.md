@@ -129,6 +129,16 @@ You can specify the Python version to create the environment with.
 
 Install the Python version you want to use in advance.
 
+The version must be a plain version number such as `3`, `3.11` or `3.11.4` (or empty / `default`). Anything else is rejected, because the version becomes part of the interpreter command.
+
+#### Creating the environment
+
+A new virtual environment is created in the background, so deploying does not block Node-RED while Python sets it up and upgrades pip. Until it is ready, the venv, pip and venv-exec nodes show "Preparing venv", and messages they receive in the meantime wait and run once the environment exists.
+
+#### Where environments are stored
+
+A relative venv Name is created inside this package's folder (`node_modules/@background404/node-red-contrib-python-venv/<name>`). **npm replaces that folder when the package is updated or reinstalled, so the environment and the packages installed into it with pip are removed and created again on the next deploy.** If you want an environment to survive updates, set the venv Name to an absolute path outside `node_modules` (for example `/home/pi/.node-red/python-venv/pyenv`).
+
 #### Using an existing virtual environment
 
 If the venv Name points at a directory that is already a Python virtual environment (it contains `pyvenv.cfg`), that environment is used instead of a new one being created. Nothing is written into it, and neither the system Python nor its venv module is needed, so an environment created with `python -m venv` or `uv venv` outside of Node-RED can be used as it is. The pip node runs `python -m pip`, so it also works in an environment that has no `pip` executable, as long as pip is installed as a module.

@@ -72,8 +72,30 @@ function resolveExecutable(execDir, executable) {
   return resolved
 }
 
+// "3", "3.11" or "3.11.4". Nothing else may reach the interpreter name, which
+// is looked up through a shell on Linux/macOS.
+const PYTHON_VERSION = /^\d+(\.\d+){0,2}$/
+
+/**
+ * Validate the Python version of a venv-config node.
+ * @param {unknown} version
+ * @returns {string|null} '' for no version ('' or 'default'), the trimmed
+ *   version when it is well formed, null otherwise
+ */
+function normalizePythonVersion(version) {
+  if (version === undefined || version === null) {
+    return ''
+  }
+  const value = String(version).trim()
+  if (value === '' || value === 'default') {
+    return ''
+  }
+  return PYTHON_VERSION.test(value) ? value : null
+}
+
 module.exports = {
   parseArguments,
   splitPackageNames,
   resolveExecutable,
+  normalizePythonVersion,
 }

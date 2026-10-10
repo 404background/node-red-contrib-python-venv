@@ -2,7 +2,7 @@ const child_process = require('child_process')
 const { splitPackageNames } = require('./lib/command-args')
 const {
   statusReporter,
-  resolveVenvForNode,
+  whenVenvReady,
   legacySend,
   legacyDone,
   callOnce,
@@ -17,24 +17,35 @@ module.exports = function (RED) {
     const node = this
     const status = statusReporter(node, 'pip')
 
-    const venvPaths = resolveVenvForNode(RED, node, config, status)
-    if (!venvPaths) {
-      return
-    }
-
     // pip is run as a module of the venv interpreter, so it works in an
     // environment that has no pip executable (e.g. one made by `uv venv`) and
     // lets `install --upgrade pip` replace pip itself on Windows.
-    const pythonPath = venvPaths.python
+    let pythonPath = null
+    const venvReady = whenVenvReady(RED, node, config, status).then(
+      venvPaths => {
+        if (venvPaths) {
+          pythonPath = venvPaths.python
+          status.clear()
+        }
+        return venvPaths
+      }
+    )
     const tail = config.tail || false
 
     // Stop any pip process still running when the node is closed.
     const activeProcesses = trackChildProcesses(node)
 
-    node.on('input', function (msg, send, done) {
+    node.on('input', async function (msg, send, done) {
       // Node-RED 0.x compatibility
       send = legacySend(node, send)
       done = legacyDone(node, msg, done)
+
+      // Without an environment there is nothing to run; the reason has
+      // already been reported on the node.
+      if (!(await venvReady)) {
+        done()
+        return
+      }
 
       let argument = pickArgument(config.arg, msg.payload)
 

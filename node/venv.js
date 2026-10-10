@@ -12,7 +12,7 @@ const {
 } = require('./lib/python-bridge')
 const {
   statusReporter,
-  resolveVenvForNode,
+  whenVenvReady,
   legacySend,
   legacyDone,
   callOnce,
@@ -47,18 +47,26 @@ module.exports = function (RED) {
     const node = this
     const status = statusReporter(node, 'venv')
 
-    const venvPaths = resolveVenvForNode(RED, node, config, status)
-    if (!venvPaths) {
-      return
-    }
-
-    const venvDir = venvPaths.venvDir
-    const pythonPath = venvPaths.python
-    const tempDir = path.join(venvDir, 'Temp')
-
     const sanitizedName = node.name ? sanitizeBaseName(node.name) : ''
     const baseName = sanitizedName !== '' ? sanitizedName : node.id
-    const editorScriptPath = path.join(venvDir, `${baseName}-${node.id}.py`)
+
+    let pythonPath = null
+    let tempDir = null
+    let editorScriptPath = null
+    const venvReady = whenVenvReady(RED, node, config, status).then(
+      venvPaths => {
+        if (venvPaths) {
+          pythonPath = venvPaths.python
+          tempDir = path.join(venvPaths.venvDir, 'Temp')
+          editorScriptPath = path.join(
+            venvPaths.venvDir,
+            `${baseName}-${node.id}.py`
+          )
+          status.key('green', 'standby')
+        }
+        return venvPaths
+      }
+    )
 
     const continuous = config.continuous || false
     const runningText = 'Running: '
@@ -75,7 +83,6 @@ module.exports = function (RED) {
     })
 
     node.standby = true
-    status.key('green', 'standby')
 
     function updateStatusAfterRun() {
       if (runningScripts > 0) {
@@ -85,7 +92,7 @@ module.exports = function (RED) {
       }
     }
 
-    node.on('input', function (msg, send, done) {
+    node.on('input', async function (msg, send, done) {
       // Node-RED 0.x compatibility
       send = legacySend(node, send)
       done = legacyDone(node, msg, done)
@@ -93,6 +100,13 @@ module.exports = function (RED) {
       // Terminate the running script(s) instead of starting another one.
       if (msg.terminate === true || msg.kill === true) {
         killAll(activeProcesses)
+        done()
+        return
+      }
+
+      // Without an environment there is nothing to run; the reason has
+      // already been reported on the node.
+      if (!(await venvReady)) {
         done()
         return
       }

@@ -6,6 +6,7 @@
     "argument": "Argument",
     "tail": "Sequential Output",
     "error-argument": "No argument provided",
-    "error": "Error"
+    "error": "Error",
+    "preparing": "Preparing venv"
   }
 }
