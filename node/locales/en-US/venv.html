@@ -65,4 +65,9 @@
     If you need to share values in real time, use <code>print()</code> and write
     to context via a downstream function/change node.
   </p>
+  <p>
+    <b>Security:</b> If the code in the node is empty, <code>msg.code</code> is
+    executed instead. It runs with the permissions of Node-RED, so never pass
+    untrusted input (HTTP requests, MQTT, etc.) into <code>msg.code</code>.
+  </p>
 </script>

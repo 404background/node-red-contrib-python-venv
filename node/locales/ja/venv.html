@@ -65,4 +65,9 @@
     リアルタイムで値を共有したい場合は、<code>print()</code>で出力し、
     後続のfunction/changeノードでコンテキストに書き込んでください。
   </p>
+  <p>
+    <b>セキュリティ:</b> ノードのコードが空のときは <code>msg.code</code> を実行します。
+    Node-RED と同じ権限で動くため、信頼できない入力（HTTP リクエストや MQTT など）を
+    <code>msg.code</code> に渡さないでください。
+  </p>
 </script>

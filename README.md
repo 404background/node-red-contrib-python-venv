@@ -59,6 +59,8 @@ The number of running nodes is displayed in the status.
 
 ![running-status.png](./img/running-status.png)
 
+> **Security:** If the code in the node is empty, `msg.code` is executed instead. Anything that can set `msg.code` can run arbitrary Python with the permissions of Node-RED, so never pass untrusted input (HTTP requests, MQTT, etc.) into `msg.code`.
+
 The venv node stops execution when `msg.kill` or `msg.terminate` is set to `true`, aligning its behavior with Node-RED's `exec` node.
 
 #### Outputs
